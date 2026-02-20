@@ -749,7 +749,7 @@ function layoutGraph() {
 // Remove intermediate points that are nearly collinear (perpendicular distance < threshold)
 function simplifyPath(pts) {
   if (pts.length <= 2) return;
-  const threshold = 3; // pixels
+  const threshold = 5; // pixels
   for (let i = pts.length - 2; i >= 1; i--) {
     const a = pts[i - 1], b = pts[i], c = pts[i + 1];
     // Perpendicular distance of b from line a→c
