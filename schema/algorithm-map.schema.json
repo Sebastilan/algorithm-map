@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Sebastilan/algorithm-map/schema/algorithm-map.schema.json",
+  "title": "Algorithm Map",
+  "description": "算法地图标准格式 — 结构化的算法描述、验证体系和执行状态",
+  "type": "object",
+  "required": ["version", "meta", "graph", "contents"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "version": {
+      "const": "0.1.0",
+      "description": "Schema 版本号"
+    },
+
+    "meta": {
+      "type": "object",
+      "description": "地图元信息",
+      "required": ["title"],
+      "additionalProperties": false,
+      "properties": {
+        "title":   { "type": "string", "description": "地图标题，如 'BPC 算法地图'" },
+        "phase":   { "type": "string", "description": "当前阶段标识，如 'Phase 1: 基础 B&P'" },
+        "project": { "type": "string", "description": "关联项目路径" },
+        "created": { "type": "string", "format": "date", "description": "创建日期 YYYY-MM-DD" },
+        "updated": { "type": "string", "format": "date", "description": "最后更新日期" }
+      }
+    },
+
+    "graph": {
+      "type": "object",
+      "description": "图拓扑结构（节点、边、区域分组）",
+      "required": ["nodes", "edges"],
+      "additionalProperties": false,
+      "properties": {
+
+        "nodes": {
+          "type": "array",
+          "description": "图中所有节点",
+          "items": {
+            "type": "object",
+            "required": ["id", "label", "type"],
+            "additionalProperties": false,
+            "properties": {
+              "id":    { "type": "string", "pattern": "^[a-z0-9_]+$", "description": "节点唯一标识，蛇形命名" },
+              "label": { "type": "string", "description": "节点显示名称" },
+              "sub":   { "type": "string", "description": "副标题/简短说明" },
+              "type":  {
+                "enum": ["process", "decision", "terminal", "auxiliary"],
+                "description": "process=处理步骤, decision=判断, terminal=起止, auxiliary=辅助"
+              }
+            }
+          }
+        },
+
+        "edges": {
+          "type": "array",
+          "description": "有向边",
+          "items": {
+            "type": "object",
+            "required": ["from", "to"],
+            "additionalProperties": false,
+            "properties": {
+              "from":  { "type": "string", "description": "起点节点 id" },
+              "to":    { "type": "string", "description": "终点节点 id" },
+              "label": { "type": "string", "description": "边上的标注文字（如 '是'/'否'）" }
+            }
+          }
+        },
+
+        "regions": {
+          "type": "array",
+          "description": "区域分组（虚线框），标注循环或逻辑区域",
+          "items": {
+            "type": "object",
+            "required": ["label", "nodes"],
+            "additionalProperties": false,
+            "properties": {
+              "label": { "type": "string", "description": "区域名称" },
+              "nodes": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "该区域包含的节点 id 列表"
+              }
+            }
+          }
+        }
+
+      }
+    },
+
+    "contents": {
+      "type": "object",
+      "description": "每个节点的六维内容。key = 节点 id，只有 type=process/decision 的核心节点需要填写",
+      "additionalProperties": {
+        "$ref": "#/$defs/nodeContent"
+      }
+    },
+
+    "state": {
+      "type": "object",
+      "description": "运行时状态（可选，执行阶段才有）",
+      "additionalProperties": false,
+      "properties": {
+
+        "nodes": {
+          "type": "object",
+          "description": "每个节点的执行状态。key = 节点 id",
+          "additionalProperties": {
+            "$ref": "#/$defs/nodeState"
+          }
+        },
+
+        "annotations": {
+          "$ref": "#/$defs/annotations"
+        }
+
+      }
+    }
+
+  },
+
+  "$defs": {
+
+    "nodeContent": {
+      "type": "object",
+      "description": "单个节点的六维内容",
+      "required": ["title", "overview"],
+      "additionalProperties": false,
+      "properties": {
+
+        "title": {
+          "type": "string",
+          "description": "节点标题"
+        },
+
+        "overview": {
+          "type": "string",
+          "description": "概述（Markdown）：一句话说明、输入→输出、为什么需要、数学模型"
+        },
+
+        "how": {
+          "type": "string",
+          "description": "实现方法（Markdown）：算法思路、核心逻辑步骤、数据流、设计决策"
+        },
+
+        "verify": {
+          "type": "object",
+          "description": "三层验证体系",
+          "additionalProperties": false,
+          "properties": {
+
+            "pre": {
+              "type": "array",
+              "description": "前置条件 — 本环节启动前必须满足的条件（上游环节的后置条件应能保证这些）",
+              "items": { "$ref": "#/$defs/condition" }
+            },
+
+            "core": {
+              "type": "array",
+              "description": "核心验证 — 本环节实现的正确性测试",
+              "items": { "$ref": "#/$defs/coreVerify" }
+            },
+
+            "post": {
+              "type": "array",
+              "description": "后置条件 — 本环节完成后保证成立的条件（下游环节的前置条件依赖这些）",
+              "items": { "$ref": "#/$defs/condition" }
+            }
+
+          }
+        },
+
+        "code": {
+          "type": "object",
+          "description": "代码信息",
+          "additionalProperties": false,
+          "properties": {
+            "files": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "关联的源码文件路径列表"
+            },
+            "snippet": {
+              "type": "string",
+              "description": "关键代码片段（Markdown 代码块格式）"
+            }
+          }
+        },
+
+        "refs": {
+          "type": "string",
+          "description": "参考资料（Markdown）：论文、文档、开源实现等"
+        },
+
+        "pitfalls": {
+          "type": "string",
+          "description": "踩坑记录（Markdown）：开发过程中遇到的问题和解决方案"
+        }
+
+      }
+    },
+
+    "condition": {
+      "type": "object",
+      "description": "前置/后置条件项",
+      "required": ["desc"],
+      "additionalProperties": false,
+      "properties": {
+        "desc":  { "type": "string", "description": "条件描述" },
+        "check": { "type": "string", "description": "验证方法/断言表达式" }
+      }
+    },
+
+    "coreVerify": {
+      "type": "object",
+      "description": "核心验证项",
+      "required": ["desc"],
+      "additionalProperties": false,
+      "properties": {
+        "desc":   { "type": "string", "description": "验证内容描述" },
+        "level":  {
+          "enum": ["L1", "L2", "L3"],
+          "description": "L1=单元级必过, L2=集成级, L3=端到端"
+        },
+        "method": { "type": "string", "description": "验证方法说明" },
+        "cmd":    { "type": "string", "description": "可执行的验证命令（如 pytest ...）" }
+      }
+    },
+
+    "nodeState": {
+      "type": "object",
+      "description": "单个节点的运行时状态",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": ["not_started", "discussing", "theory_ok", "implemented", "verified"],
+          "description": "节点当前状态"
+        },
+        "verify_results": {
+          "type": "object",
+          "description": "各验证项的通过情况",
+          "additionalProperties": false,
+          "properties": {
+            "pre":  { "type": "array", "items": { "type": ["boolean", "null"] }, "description": "前置条件结果，null=未执行" },
+            "core": { "type": "array", "items": { "type": ["boolean", "null"] }, "description": "核心验证结果" },
+            "post": { "type": "array", "items": { "type": ["boolean", "null"] }, "description": "后置条件结果" }
+          }
+        }
+      }
+    },
+
+    "annotations": {
+      "type": "object",
+      "description": "批注数据",
+      "additionalProperties": false,
+      "properties": {
+
+        "flow": {
+          "type": "array",
+          "description": "流程图层面的批注（针对结构）",
+          "items": {
+            "type": "object",
+            "required": ["target", "text"],
+            "additionalProperties": false,
+            "properties": {
+              "id":     { "type": "string", "description": "批注唯一 ID" },
+              "target": { "type": "string", "description": "批注对象：'node:<id>' 或 'edge:<from>-><to>'" },
+              "text":   { "type": "string", "description": "批注内容" },
+              "time":   { "type": "string", "format": "date-time", "description": "批注时间" },
+              "resolved": { "type": "boolean", "description": "是否已解决" }
+            }
+          }
+        },
+
+        "node": {
+          "type": "array",
+          "description": "面板层面的批注（针对内容）",
+          "items": {
+            "type": "object",
+            "required": ["target", "tab", "text"],
+            "additionalProperties": false,
+            "properties": {
+              "id":       { "type": "string", "description": "批注唯一 ID" },
+              "target":   { "type": "string", "description": "所属节点 id" },
+              "tab":      { "enum": ["overview", "how", "verify", "code", "refs", "pitfalls"], "description": "所属 Tab" },
+              "text":     { "type": "string", "description": "批注内容" },
+              "anchor":   { "type": "string", "description": "被批注的原文片段（可选，用于定位高亮）" },
+              "time":     { "type": "string", "format": "date-time", "description": "批注时间" },
+              "resolved": { "type": "boolean", "description": "是否已解决" }
+            }
+          }
+        }
+
+      }
+    }
+
+  }
+}
