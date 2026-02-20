@@ -2,9 +2,9 @@
 
 ## Phase 0: Schema 定义 ← 当前阶段
 
-- [ ] 定义 JSON Schema（三层：结构/内容/状态） ← 当前步骤
-- [ ] 创建 BPC 示例 JSON（符合 Schema）
-- [ ] 编写生成规范 prompt
+- [x] 定义 JSON Schema（三层：结构/内容/状态）
+- [x] 创建 BPC 示例 JSON（符合 Schema）
+- [ ] 编写生成规范 prompt ← 当前步骤
 
 ## Phase 1: 渲染器
 

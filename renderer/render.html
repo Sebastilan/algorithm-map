@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>算法地图</title>
+<!-- Markdown renderer -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
+<!-- KaTeX for LaTeX math -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<!-- Dagre for graph layout -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #fafbfc;
+  --text: #1a1a2e;
+  --text-secondary: #555;
+  --border: #d0d7de;
+  --panel-bg: #ffffff;
+  --panel-width: 520px;
+  --header-h: 52px;
+  --accent: #2563eb;
+  --accent-light: #dbeafe;
+  --node-process: #e8f0fe;
+  --node-process-stroke: #4285f4;
+  --node-decision: #fef7e0;
+  --node-decision-stroke: #f9ab00;
+  --node-terminal: #e6f4ea;
+  --node-terminal-stroke: #34a853;
+  --node-auxiliary: #f3f4f6;
+  --node-auxiliary-stroke: #9ca3af;
+  --status-not-started: #d1d5db;
+  --status-discussing: #f97316;
+  --status-theory-ok: #3b82f6;
+  --status-implemented: #22c55e;
+  --status-verified: #15803d;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ===== Header ===== */
+.header {
+  height: var(--header-h);
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  z-index: 100;
+  position: relative;
+}
+.header h1 { font-size: 18px; font-weight: 700; white-space: nowrap; }
+.phase-badge {
+  font-size: 12px;
+  background: var(--accent-light);
+  color: var(--accent);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+.header-spacer { flex: 1; }
+.header-btn {
+  font-size: 13px; padding: 5px 12px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: #fff; color: var(--text); cursor: pointer;
+}
+.header-btn:hover { background: #f3f4f6; }
+.header-btn-export {
+  font-size: 13px; padding: 5px 12px;
+  border: 1px solid #f9ab00; border-radius: 6px;
+  background: #fff8e1; color: #b45309; cursor: pointer; font-weight: 600;
+}
+
+/* Progress mini */
+.progress-mini { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+.progress-bar-bg { width: 80px; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.3s; }
+
+/* ===== Main Layout ===== */
+.main { display: flex; height: calc(100vh - var(--header-h)); }
+
+.flowchart-container {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+  transition: margin-right 0.3s ease;
+}
+.flowchart-container.panel-open { margin-right: var(--panel-width); }
+
+/* ===== SVG Flowchart ===== */
+svg.flowchart { display: block; margin: 0 auto; }
+
+.node-group { cursor: pointer; }
+.node-group:hover .node-shape { filter: brightness(0.95); }
+.node-group.selected .node-shape {
+  stroke-width: 3;
+  filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.4));
+}
+.node-label {
+  font-size: 13px; font-weight: 600; fill: var(--text);
+  text-anchor: middle; dominant-baseline: central; pointer-events: none;
+}
+.node-sublabel {
+  font-size: 10px; fill: var(--text-secondary);
+  text-anchor: middle; dominant-baseline: central; pointer-events: none;
+}
+.edge-line { stroke: #6b7280; stroke-width: 1.5; fill: none; }
+.edge-label { font-size: 11px; fill: #6b7280; }
+.arrowhead { fill: #6b7280; }
+.status-dot { stroke: #fff; stroke-width: 1.5; }
+
+/* Region labels */
+.region-rect {
+  fill: none; stroke: var(--accent); stroke-width: 1;
+  stroke-dasharray: 6 3; rx: 12; opacity: 0.4;
+}
+.region-label {
+  font-size: 11px; font-weight: 600; fill: var(--accent); letter-spacing: 0.5px;
+}
+
+/* ===== Right Panel ===== */
+.panel {
+  position: fixed; top: var(--header-h); right: 0;
+  width: var(--panel-width); height: calc(100vh - var(--header-h));
+  background: var(--panel-bg); border-left: 1px solid var(--border);
+  transform: translateX(100%); transition: transform 0.3s ease;
+  display: flex; flex-direction: column; z-index: 50;
+}
+.panel.open { transform: translateX(0); }
+
+.panel-header {
+  display: flex; align-items: center; padding: 14px 18px;
+  border-bottom: 1px solid var(--border); gap: 10px;
+}
+.panel-header h2 { flex: 1; font-size: 16px; }
+.panel-close { border: none; background: none; font-size: 22px; cursor: pointer; color: #999; }
+
+.panel-status { display: flex; align-items: center; padding: 10px 18px; gap: 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.panel-status select {
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 8px; font-size: 13px; font-family: inherit;
+}
+
+/* Tabs */
+.tab-bar {
+  display: flex; border-bottom: 1px solid var(--border);
+  padding: 0 18px; gap: 0; overflow-x: auto;
+}
+.tab-btn {
+  padding: 10px 14px; font-size: 13px; font-weight: 500;
+  border: none; background: none; cursor: pointer;
+  color: var(--text-secondary); border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+.tab-content-area {
+  flex: 1; overflow-y: auto; padding: 18px;
+  font-size: 14px; line-height: 1.8;
+}
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+.tab-content-area h3 { font-size: 15px; margin: 14px 0 6px; color: var(--text); }
+.tab-content-area ul, .tab-content-area ol { padding-left: 20px; margin-bottom: 10px; }
+.tab-content-area pre {
+  background: #f6f8fa; border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px; overflow-x: auto;
+  font-size: 13px; line-height: 1.6;
+}
+.tab-content-area code { font-family: "SF Mono", Consolas, monospace; font-size: 13px; }
+.tab-content-area p { margin-bottom: 8px; }
+.tab-content-area p code, .tab-content-area li code {
+  background: #f0f4f8; padding: 2px 6px; border-radius: 4px; font-size: 12px;
+}
+
+/* Math blocks rendered by KaTeX */
+.tab-content-area .katex-display { margin: 10px 0; overflow-x: auto; }
+
+/* Code paths */
+.code-path { margin-bottom: 6px; font-size: 13px; }
+.code-path code {
+  background: #f0f4f8; padding: 2px 6px; border-radius: 4px;
+  font-size: 12px; color: #0969da;
+}
+
+/* Verify items */
+.verify-header { margin-bottom: 12px; }
+.verify-header h3 { margin: 0 0 4px; }
+.verify-header p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+.verify-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.15s;
+}
+.verify-item:hover { background: #f9fafb; }
+.verify-item.passed { background: #f0fdf4; border-color: #86efac; }
+.verify-item input { margin-top: 3px; }
+.verify-content { flex: 1; }
+.verify-meta { display: flex; gap: 6px; margin-top: 4px; }
+.verify-level {
+  font-size: 11px; font-weight: 600; padding: 1px 6px;
+  border-radius: 4px; background: #dbeafe; color: #1d4ed8;
+}
+.verify-method-text { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.verify-cmd {
+  display: block; font-size: 11px; margin-top: 4px;
+  background: #1e293b; color: #e2e8f0; padding: 6px 10px;
+  border-radius: 4px; font-family: monospace; white-space: pre-wrap;
+}
+.verify-summary { font-size: 13px; margin-top: 12px; color: var(--text-secondary); }
+.verify-summary-count { font-weight: 700; color: var(--accent); }
+
+/* Verify 3-layer section headers */
+.verify-section-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0 6px; margin-top: 14px; font-size: 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.verify-section-header:first-child { margin-top: 0; }
+.verify-section-icon { font-size: 18px; width: 28px; text-align: center; flex-shrink: 0; }
+.verify-section-sub { font-size: 12px; color: var(--text-secondary); font-weight: 400; margin-top: 2px; }
+
+/* ===== Annotations ===== */
+.anno-mode-btn { transition: all 0.2s; }
+.anno-mode-btn.active {
+  background: #fff8e1 !important; border-color: #f9ab00 !important;
+  color: #b45309 !important; font-weight: 600;
+}
+body.anno-mode-on .flowchart-container { cursor: crosshair; }
+body.anno-mode-on .node-group { cursor: crosshair; }
+body.anno-mode-on .edge-line { cursor: crosshair; pointer-events: stroke; stroke-width: 12; }
+
+.flow-anno-marker { cursor: pointer; transition: transform 0.15s; }
+.flow-anno-marker:hover { transform: scale(1.3); }
+.flow-anno-marker circle { fill: #f9ab00; stroke: #fff; stroke-width: 1.5; }
+.flow-anno-marker text {
+  font-size: 9px; fill: #fff; font-weight: 700;
+  text-anchor: middle; dominant-baseline: central; pointer-events: none;
+}
+
+.flow-anno-tooltip {
+  position: fixed; background: #1a1a2e; color: #fff;
+  padding: 10px 14px; border-radius: 8px; font-size: 13px;
+  line-height: 1.5; max-width: 320px; z-index: 210;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  pointer-events: none; opacity: 0; transition: opacity 0.15s;
+}
+.flow-anno-tooltip.show { opacity: 1; pointer-events: auto; }
+.flow-anno-tooltip .flow-anno-delete {
+  display: inline-block; margin-top: 6px; font-size: 12px;
+  color: #f87171; cursor: pointer; pointer-events: auto;
+}
+
+.pitfall-item {
+  background: #fff5f5; border-left: 3px solid #ef4444;
+  padding: 12px 16px; margin-bottom: 12px; border-radius: 0 8px 8px 0;
+}
+.annotation-section {
+  margin-top: 20px; border-top: 1px dashed var(--border); padding-top: 14px;
+}
+.annotation-section-title { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 8px; }
+.annotation-item {
+  background: #fff8e1; border-left: 3px solid #f9ab00;
+  padding: 8px 12px; margin-bottom: 8px; border-radius: 0 6px 6px 0;
+  font-size: 13px; line-height: 1.6; display: flex; align-items: flex-start; gap: 8px;
+}
+.annotation-text { flex: 1; }
+.annotation-delete {
+  border: none; background: none; color: #ccc;
+  cursor: pointer; font-size: 14px; padding: 0 2px; flex-shrink: 0;
+}
+.annotation-delete:hover { color: #e53935; }
+
+/* Clickable annotation units */
+.tab-content-area p,
+.tab-content-area li,
+.tab-content-area pre,
+.tab-content-area dd,
+.tab-content-area td,
+.tab-content-area blockquote {
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s, box-shadow 0.15s;
+  position: relative;
+}
+.tab-content-area p:hover,
+.tab-content-area li:hover,
+.tab-content-area pre:hover,
+.tab-content-area dd:hover,
+.tab-content-area td:hover,
+.tab-content-area blockquote:hover {
+  background: #f0f4ff;
+}
+.tab-content-area .anno-unit-selected {
+  background: #dbeafe !important;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.tab-content-area .annotation-section p,
+.tab-content-area .annotation-section div {
+  cursor: default;
+}
+.tab-content-area .annotation-section p:hover,
+.tab-content-area .annotation-section div:hover {
+  background: transparent;
+}
+
+/* Annotation popup */
+.anno-popup {
+  position: fixed; background: #fff; border-radius: 14px 14px 0 0;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+  padding: 14px 16px; z-index: 300;
+  bottom: 0; left: 0; right: 0; width: 100%;
+  transform: translateY(100%); transition: transform 0.25s ease;
+}
+.anno-popup.show { transform: translateY(0); }
+.anno-selected-preview {
+  font-size: 13px; color: #555; background: #f5f5f5;
+  padding: 8px 12px; border-radius: 6px; margin-bottom: 10px;
+  max-height: 80px; overflow-y: auto; line-height: 1.5;
+  border-left: 3px solid var(--accent);
+}
+.anno-popup-row { display: flex; gap: 8px; align-items: center; }
+.anno-popup-input {
+  flex: 1; border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; font-size: 14px; font-family: inherit; outline: none;
+}
+.anno-popup-input:focus { border-color: var(--accent); }
+.anno-popup-submit {
+  padding: 10px 20px; border: none; border-radius: 8px;
+  background: var(--accent); color: #fff; font-size: 14px;
+  font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.anno-popup-submit:hover { background: #1d4ed8; }
+.anno-popup-cancel {
+  padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
+  background: #fff; color: var(--text-secondary); font-size: 14px;
+  cursor: pointer; white-space: nowrap;
+}
+
+.anno-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.2);
+  z-index: 299; display: none;
+}
+.anno-overlay.show { display: block; }
+
+.anno-highlight {
+  background: #fff3cd; border-bottom: 2px solid #f9ab00;
+  cursor: help; position: relative;
+}
+.anno-highlight:hover { background: #ffe69c; }
+.anno-highlight::after {
+  content: attr(data-comment); position: absolute;
+  bottom: calc(100% + 6px); left: 0;
+  background: #1a1a2e; color: #fff; padding: 8px 12px;
+  border-radius: 6px; font-size: 12px; line-height: 1.5;
+  white-space: pre-wrap; max-width: 320px; min-width: 120px;
+  opacity: 0; pointer-events: none; transition: opacity 0.15s;
+  z-index: 210; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.anno-highlight:hover::after { opacity: 1; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  z-index: 150; display: none; align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: #fff; border-radius: 12px; padding: 24px;
+  max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.modal-close { float: right; border: none; background: none; font-size: 20px; cursor: pointer; color: #999; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #1a1a2e; color: #fff; padding: 10px 24px; border-radius: 8px;
+  font-size: 13px; z-index: 300; opacity: 0; transition: opacity 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* Loading */
+.loading-overlay {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 500; font-size: 16px; color: var(--text-secondary);
+}
+.loading-overlay.hidden { display: none; }
+
+/* ===== Mobile ===== */
+@media (max-width: 900px) {
+  :root { --panel-width: 100%; }
+  .flowchart-container.panel-open { margin-right: 0; }
+  .anno-highlight.touch-active::after { opacity: 1; }
+}
+
+/* Legend rows */
+.legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px; }
+.legend-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.progress-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+.progress-item .legend-dot { width: 10px; height: 10px; }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loadingOverlay">Loading algorithm map...</div>
+
+<!-- ===== Header ===== -->
+<div class="header">
+  <h1 id="mapTitle">算法地图</h1>
+  <span class="phase-badge" id="mapPhase"></span>
+  <div class="header-spacer"></div>
+  <div class="progress-mini">
+    <span id="progressText">0/0</span>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar" style="width:0%"></div></div>
+  </div>
+  <button class="header-btn" onclick="showModal('legend')">图例</button>
+  <button class="header-btn" onclick="showModal('progress')">进度总览</button>
+  <button class="header-btn anno-mode-btn" id="annoModeBtn" onclick="toggleAnnoMode()">批注模式</button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ===== Main ===== -->
+<div class="main">
+  <div class="flowchart-container" id="flowchartContainer">
+    <svg class="flowchart" id="flowchartSvg">
+      <defs>
+        <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" class="arrowhead"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="panel" id="panel">
+    <div class="panel-header">
+      <h2 id="panelTitle"></h2>
+      <button class="panel-close" onclick="closePanel()">&times;</button>
+    </div>
+    <div class="panel-status">
+      <span>状态：</span>
+      <select id="panelStatusSelect"></select>
+      <button class="header-btn-export" onclick="exportAnnotations()" style="margin-left:auto">导出批注</button>
+    </div>
+    <div class="tab-bar" id="tabBar">
+      <button class="tab-btn active" data-tab="overview">概述</button>
+      <button class="tab-btn" data-tab="how">How</button>
+      <button class="tab-btn" data-tab="verify">Verify</button>
+      <button class="tab-btn" data-tab="code">Code</button>
+      <button class="tab-btn" data-tab="refs">参考</button>
+      <button class="tab-btn" data-tab="pitfalls">踩坑</button>
+    </div>
+    <div class="tab-content-area">
+      <div class="tab-pane active" id="pane-overview"></div>
+      <div class="tab-pane" id="pane-how"></div>
+      <div class="tab-pane" id="pane-verify"></div>
+      <div class="tab-pane" id="pane-code"></div>
+      <div class="tab-pane" id="pane-refs"></div>
+      <div class="tab-pane" id="pane-pitfalls"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Legend Modal -->
+<div class="modal-overlay" id="modal-legend">
+  <div class="modal">
+    <button class="modal-close" onclick="hideModal('legend')">&times;</button>
+    <h2>图例</h2>
+    <h3 style="font-size:14px;margin:16px 0 8px">节点形状</h3>
+    <div class="legend-row"><span style="display:inline-block;width:30px;height:18px;background:var(--node-process);border:2px solid var(--node-process-stroke);border-radius:4px"></span><span>处理步骤</span></div>
+    <div class="legend-row"><span style="display:inline-block;width:22px;height:22px;background:var(--node-decision);border:2px solid var(--node-decision-stroke);transform:rotate(45deg)"></span><span style="margin-left:4px">判断节点</span></div>
+    <div class="legend-row"><span style="display:inline-block;width:30px;height:18px;background:var(--node-terminal);border:2px solid var(--node-terminal-stroke);border-radius:50%"></span><span>起止节点</span></div>
+    <h3 style="font-size:14px;margin:16px 0 8px">节点状态</h3>
+    <div class="legend-row"><div class="legend-dot" style="background:#d1d5db"></div><span>未开始</span></div>
+    <div class="legend-row"><div class="legend-dot" style="background:#f97316"></div><span>讨论中</span></div>
+    <div class="legend-row"><div class="legend-dot" style="background:#3b82f6"></div><span>理论确认</span></div>
+    <div class="legend-row"><div class="legend-dot" style="background:#22c55e"></div><span>已实现</span></div>
+    <div class="legend-row"><div class="legend-dot" style="background:#15803d"></div><span>已验证</span></div>
+    <h3 style="font-size:14px;margin:16px 0 8px">区域</h3>
+    <div class="legend-row" style="gap:8px">
+      <span style="border:1px dashed #2563eb;padding:2px 8px;border-radius:4px;font-size:12px;color:#2563eb">虚线框</span>
+      <span>算法循环区域</span>
+    </div>
+  </div>
+</div>
+
+<!-- Progress Modal -->
+<div class="modal-overlay" id="modal-progress">
+  <div class="modal">
+    <button class="modal-close" onclick="hideModal('progress')">&times;</button>
+    <h2>进度总览</h2>
+    <div id="progressList" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<script>
+// ===================================================================
+//  Global state — populated after JSON load
+// ===================================================================
+let mapData = null;       // The full JSON
+let GRAPH_NODES = [];
+let GRAPH_EDGES = [];
+let REGIONS = [];
+let CONTENT_NODES = [];   // Node IDs that have content (equivalent to TEACHING_NODES)
+let CONTENTS = {};        // mapData.contents
+let dagreGraph = null;    // dagre layout result
+
+// ===================================================================
+//  Markdown rendering with LaTeX math support
+// ===================================================================
+function renderMd(md) {
+  if (!md) return '<p style="color:#999">暂无内容。</p>';
+
+  // Pre-process: protect LaTeX blocks from marked
+  const blocks = [];
+  let processed = md;
+
+  // Display math: $$...$$
+  processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (_, tex) => {
+    const idx = blocks.length;
+    try { blocks.push(katex.renderToString(tex.trim(), { displayMode: true, throwOnError: false })); }
+    catch { blocks.push('<code>' + tex.trim() + '</code>'); }
+    return `%%MATHBLOCK_${idx}%%`;
+  });
+
+  // Inline math: $...$  (but not $$)
+  processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, tex) => {
+    const idx = blocks.length;
+    try { blocks.push(katex.renderToString(tex.trim(), { displayMode: false, throwOnError: false })); }
+    catch { blocks.push('<code>' + tex.trim() + '</code>'); }
+    return `%%MATHBLOCK_${idx}%%`;
+  });
+
+  // Run marked
+  let html = marked.parse(processed);
+
+  // Restore math blocks
+  html = html.replace(/%%MATHBLOCK_(\d+)%%/g, (_, idx) => blocks[parseInt(idx)]);
+
+  return html;
+}
+
+// ===================================================================
+//  Load JSON
+// ===================================================================
+async function loadMap() {
+  const params = new URLSearchParams(location.search);
+  let src = params.get("src");
+
+  if (!src) {
+    // Try default path
+    src = "../examples/bpc-phase1.json";
+  }
+
+  try {
+    const resp = await fetch(src);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    mapData = await resp.json();
+  } catch (err) {
+    document.getElementById("loadingOverlay").textContent =
+      `Failed to load: ${src}\n${err.message}\n\nUsage: render.html?src=path/to/map.json`;
+    return;
+  }
+
+  // Populate globals
+  GRAPH_NODES = mapData.graph.nodes;
+  GRAPH_EDGES = mapData.graph.edges;
+  REGIONS = mapData.graph.regions || [];
+  CONTENTS = mapData.contents || {};
+  CONTENT_NODES = Object.keys(CONTENTS);
+
+  // Header
+  document.getElementById("mapTitle").textContent = mapData.meta.title || "算法地图";
+  const phase = mapData.meta.phase;
+  const badge = document.getElementById("mapPhase");
+  if (phase) { badge.textContent = phase; } else { badge.style.display = "none"; }
+  document.title = mapData.meta.title || "算法地图";
+
+  // Init state
+  initState();
+
+  // Layout and render
+  dagreGraph = layoutGraph();
+  renderFlowchart(dagreGraph);
+  renderStatusDots();
+  updateProgress();
+  renderFlowAnnotations();
+
+  // Hide loading
+  document.getElementById("loadingOverlay").classList.add("hidden");
+}
+
+// ===================================================================
+//  State Management
+// ===================================================================
+const STATE_VERSION = 4;
+let state = {};
+
+function stateKey() {
+  return "algomap_" + (mapData?.meta?.title || "default").replace(/\s+/g, "_");
+}
+
+function defaultState() {
+  return { version: STATE_VERSION, statuses: {}, verifyChecks: {}, annotations: {}, flowAnnotations: {} };
+}
+
+function initState() {
+  // Start from JSON state if available
+  const base = defaultState();
+
+  if (mapData.state) {
+    // Import node statuses
+    if (mapData.state.nodes) {
+      for (const [nid, ns] of Object.entries(mapData.state.nodes)) {
+        if (ns.status) base.statuses[nid] = ns.status;
+        if (ns.verify_results) {
+          base.verifyChecks[nid] = {};
+          const vr = ns.verify_results;
+          let idx = 0;
+          for (const layer of ["pre", "core", "post"]) {
+            if (vr[layer]) {
+              for (const val of vr[layer]) {
+                if (val === true) base.verifyChecks[nid][idx] = true;
+                idx++;
+              }
+            }
+          }
+        }
+      }
+    }
+    // Import annotations
+    if (mapData.state.annotations) {
+      if (mapData.state.annotations.flow) {
+        for (const a of mapData.state.annotations.flow) {
+          if (!base.flowAnnotations[a.target]) base.flowAnnotations[a.target] = [];
+          base.flowAnnotations[a.target].push({ comment: a.text, time: a.time });
+        }
+      }
+      if (mapData.state.annotations.node) {
+        for (const a of mapData.state.annotations.node) {
+          if (!base.annotations[a.target]) base.annotations[a.target] = {};
+          if (!base.annotations[a.target][a.tab]) base.annotations[a.target][a.tab] = [];
+          base.annotations[a.target][a.tab].push({ text: a.anchor || "", comment: a.text });
+        }
+      }
+    }
+  }
+
+  // Overlay localStorage (user's local edits take precedence)
+  try {
+    const raw = localStorage.getItem(stateKey());
+    if (raw) {
+      const local = JSON.parse(raw);
+      if (local.version === STATE_VERSION) {
+        state = local;
+        return;
+      }
+    }
+  } catch {}
+
+  state = base;
+  saveState();
+}
+
+function saveState() {
+  localStorage.setItem(stateKey(), JSON.stringify(state));
+}
+
+// ===================================================================
+//  Dagre Layout
+// ===================================================================
+function layoutGraph() {
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({ rankdir: "TB", nodesep: 60, ranksep: 70, edgesep: 20, marginx: 40, marginy: 40 });
+  g.setDefaultEdgeLabel(() => ({}));
+
+  const dims = {
+    process:  { w: 200, h: 52 },
+    decision: { w: 160, h: 70 },
+    terminal: { w: 130, h: 48 },
+    auxiliary:{ w: 120, h: 32 },
+  };
+
+  GRAPH_NODES.forEach(n => {
+    const d = dims[n.type] || dims.process;
+    g.setNode(n.id, { width: d.w, height: d.h, ...n });
+  });
+
+  GRAPH_EDGES.forEach(e => {
+    g.setEdge(e.from, e.to, { label: e.label || "" });
+  });
+
+  dagre.layout(g);
+  return g;
+}
+
+// ===================================================================
+//  Render SVG Flowchart
+// ===================================================================
+function renderFlowchart(g) {
+  const svg = document.getElementById("flowchartSvg");
+  const graph = g.graph();
+
+  svg.setAttribute("width", graph.width + 80);
+  svg.setAttribute("height", graph.height + 80);
+  svg.setAttribute("viewBox", `0 0 ${graph.width + 80} ${graph.height + 80}`);
+
+  const offsetX = 40, offsetY = 40;
+  let svgContent = "";
+
+  // Regions — sort by area (largest first) so outer regions get more padding
+  const regionBounds = REGIONS.map(region => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    region.nodes.forEach(nid => {
+      const n = g.node(nid);
+      if (!n) return;
+      minX = Math.min(minX, n.x - n.width/2);
+      minY = Math.min(minY, n.y - n.height/2);
+      maxX = Math.max(maxX, n.x + n.width/2);
+      maxY = Math.max(maxY, n.y + n.height/2);
+    });
+    return { label: region.label, minX, minY, maxX, maxY, area: (maxX - minX) * (maxY - minY) };
+  });
+  regionBounds.sort((a, b) => a.area - b.area);
+  regionBounds.forEach((rb, i) => {
+    const pad = 30 + i * 20;
+    svgContent += `<rect class="region-rect" x="${rb.minX + offsetX - pad}" y="${rb.minY + offsetY - pad}" width="${rb.maxX - rb.minX + pad*2}" height="${rb.maxY - rb.minY + pad*2}" />`;
+    svgContent += `<text class="region-label" x="${rb.minX + offsetX - pad + 12}" y="${rb.minY + offsetY - pad + 16}">${rb.label}</text>`;
+  });
+
+  // Edges
+  g.edges().forEach(e => {
+    const edge = g.edge(e);
+    const points = edge.points;
+    if (points.length >= 2) {
+      let d = `M ${points[0].x + offsetX},${points[0].y + offsetY}`;
+      for (let i = 1; i < points.length; i++) {
+        d += ` L ${points[i].x + offsetX},${points[i].y + offsetY}`;
+      }
+      svgContent += `<path class="edge-line" d="${d}" marker-end="url(#arrowhead)"/>`;
+      if (edge.label) {
+        const mid = points[Math.floor(points.length / 2)];
+        svgContent += `<text class="edge-label" x="${mid.x + offsetX + 6}" y="${mid.y + offsetY - 6}">${edge.label}</text>`;
+      }
+    }
+  });
+
+  // Color maps
+  const fills = {
+    process: "var(--node-process)", decision: "var(--node-decision)",
+    terminal: "var(--node-terminal)", auxiliary: "var(--node-auxiliary)",
+  };
+  const strokes = {
+    process: "var(--node-process-stroke)", decision: "var(--node-decision-stroke)",
+    terminal: "var(--node-terminal-stroke)", auxiliary: "var(--node-auxiliary-stroke)",
+  };
+
+  // Nodes
+  g.nodes().forEach(nid => {
+    const n = g.node(nid);
+    const cx = n.x + offsetX, cy = n.y + offsetY;
+    const hasContent = CONTENT_NODES.includes(nid);
+
+    svgContent += `<g class="node-group" data-node="${nid}">`;
+
+    if (n.type === "decision") {
+      const hw = n.width / 2, hh = n.height / 2;
+      svgContent += `<polygon class="node-shape" points="${cx},${cy-hh} ${cx+hw},${cy} ${cx},${cy+hh} ${cx-hw},${cy}" fill="${fills.decision}" stroke="${strokes.decision}" stroke-width="2"/>`;
+    } else if (n.type === "terminal") {
+      svgContent += `<ellipse class="node-shape" cx="${cx}" cy="${cy}" rx="${n.width/2}" ry="${n.height/2}" fill="${fills.terminal}" stroke="${strokes.terminal}" stroke-width="2"/>`;
+    } else {
+      const fill = fills[n.type] || fills.process;
+      const stroke = strokes[n.type] || strokes.process;
+      svgContent += `<rect class="node-shape" x="${cx - n.width/2}" y="${cy - n.height/2}" width="${n.width}" height="${n.height}" rx="8" ry="8" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    }
+
+    svgContent += `<text class="node-label" x="${cx}" y="${n.sub ? cy - 7 : cy}" style="font-size:${n.type === 'auxiliary' ? 12 : 13}px">${n.label}</text>`;
+    if (n.sub) {
+      svgContent += `<text class="node-sublabel" x="${cx}" y="${cy + 11}">${n.sub}</text>`;
+    }
+
+    if (hasContent) {
+      svgContent += `<circle class="status-dot" cx="${cx + n.width/2 - 12}" cy="${cy - n.height/2 + 12}" r="6" fill="var(--status-not-started)" data-status-dot="${nid}"/>`;
+    }
+
+    svgContent += `</g>`;
+  });
+
+  const defs = svg.querySelector("defs").outerHTML;
+  svg.innerHTML = defs + svgContent;
+}
+
+// ===================================================================
+//  Status & Progress
+// ===================================================================
+const STATUS_COLORS = {
+  not_started: "var(--status-not-started)", discussing: "var(--status-discussing)",
+  theory_ok: "var(--status-theory-ok)", implemented: "var(--status-implemented)",
+  verified: "var(--status-verified)",
+};
+const STATUS_LABELS = {
+  not_started: "未开始", discussing: "讨论中",
+  theory_ok: "理论确认", implemented: "已实现", verified: "已验证",
+};
+
+function renderStatusDots() {
+  CONTENT_NODES.forEach(nid => {
+    const dot = document.querySelector(`[data-status-dot="${nid}"]`);
+    if (dot) dot.setAttribute("fill", STATUS_COLORS[state.statuses[nid] || "not_started"]);
+  });
+}
+
+function updateProgress() {
+  const done = CONTENT_NODES.filter(n => ["implemented","verified"].includes(state.statuses[n] || "")).length;
+  document.getElementById("progressText").textContent = `${done}/${CONTENT_NODES.length}`;
+  document.getElementById("progressBar").style.width = `${(done / CONTENT_NODES.length * 100)}%`;
+  const list = document.getElementById("progressList");
+  list.innerHTML = CONTENT_NODES.map(nid => {
+    const st = state.statuses[nid] || "not_started";
+    return `<div class="progress-item"><div class="legend-dot" style="background:${STATUS_COLORS[st]}"></div><span>${CONTENTS[nid]?.title || nid}</span><span style="margin-left:auto;color:var(--text-secondary)">${STATUS_LABELS[st]}</span></div>`;
+  }).join("");
+}
+
+// Status select
+const statusSel = document.getElementById("panelStatusSelect");
+Object.entries(STATUS_LABELS).forEach(([k,v]) => {
+  const opt = document.createElement("option"); opt.value = k; opt.textContent = v;
+  statusSel.appendChild(opt);
+});
+statusSel.addEventListener("change", () => {
+  if (!currentNodeId) return;
+  state.statuses[currentNodeId] = statusSel.value;
+  saveState(); renderStatusDots(); updateProgress();
+});
+
+// ===================================================================
+//  Panel
+// ===================================================================
+let currentNodeId = null;
+let rawTabContent = {};
+
+function openPanel(nodeId) {
+  const data = CONTENTS[nodeId];
+  if (!data) return;
+
+  document.querySelectorAll(".node-group").forEach(g => g.classList.remove("selected"));
+  const grp = document.querySelector(`[data-node="${nodeId}"]`);
+  if (grp) grp.classList.add("selected");
+  currentNodeId = nodeId;
+
+  document.getElementById("panelTitle").textContent = data.title;
+  statusSel.value = state.statuses[nodeId] || "not_started";
+
+  // --- Fill tabs with Markdown rendering ---
+  const overviewHtml = renderMd(data.overview);
+  const howHtml = renderMd(data.how);
+  const refsHtml = renderMd(data.refs);
+  const pitfallsHtml = data.pitfalls ? renderMd(data.pitfalls) : '<p style="color:#999">暂无踩坑记录。遇到 bug 后在此记录。</p>';
+
+  // Code tab
+  let codeHtml = "";
+  if (data.code) {
+    if (data.code.files && data.code.files.length > 0) {
+      codeHtml += "<h3>代码文件</h3>";
+      data.code.files.forEach(f => { codeHtml += `<div class="code-path"><code>${f}</code></div>`; });
+    }
+    if (data.code.snippet) {
+      codeHtml += "<h3>核心实现</h3>" + renderMd(data.code.snippet);
+    }
+  }
+  if (!codeHtml) codeHtml = '<p style="color:#999">暂无代码（规划阶段）</p>';
+
+  rawTabContent = { overview: overviewHtml, how: howHtml, code: codeHtml, refs: refsHtml, pitfalls: pitfallsHtml };
+  for (const [tab, html] of Object.entries(rawTabContent)) {
+    document.getElementById(`pane-${tab}`).innerHTML = html;
+  }
+
+  // --- Verify tab (3-layer structure) ---
+  const verify = data.verify || {};
+  const sections = [
+    { key: "pre",  title: "前置条件", subtitle: "上一步的输出满足要求吗？", icon: "⬇" },
+    { key: "core", title: "内部正确性", subtitle: "这步本身的逻辑对不对？", icon: "⚙" },
+    { key: "post", title: "后置条件", subtitle: "输出能被下一步正确消费吗？", icon: "⬆" },
+  ];
+
+  let verifyHtml = "";
+  let globalIdx = 0;
+  let totalItems = 0;
+
+  sections.forEach(sec => {
+    const items = verify[sec.key] || [];
+    if (items.length === 0) return;
+    verifyHtml += `<div class="verify-section-header"><span class="verify-section-icon">${sec.icon}</span><div><strong>${sec.title}</strong><div class="verify-section-sub">${sec.subtitle}</div></div></div>`;
+    items.forEach(item => {
+      const checked = state.verifyChecks[nodeId]?.[globalIdx] ? "checked" : "";
+      const passedClass = checked ? " passed" : "";
+      const levelTag = item.level ? `<span class="verify-level">${item.level}</span>` : "";
+      const checkTag = item.check ? `<div class="verify-method-text">检查：${item.check}</div>` : "";
+      const methodTag = item.method ? `<div class="verify-method-text">方法：${item.method}</div>` : "";
+      const cmdEl = item.cmd ? `<code class="verify-cmd">${item.cmd}</code>` : "";
+      verifyHtml += `<label class="verify-item${passedClass}"><input type="checkbox" ${checked} data-verify-idx="${globalIdx}"><div class="verify-content"><div>${item.desc}</div><div class="verify-meta">${levelTag}</div>${checkTag}${methodTag}${cmdEl}</div></label>`;
+      totalItems++;
+      globalIdx++;
+    });
+  });
+
+  const checkedCount = Object.values(state.verifyChecks[nodeId] || {}).filter(Boolean).length;
+  document.getElementById("pane-verify").innerHTML = `<div class="verify-header"><h3>验证规范</h3><p>三层验证：前置条件 → 内部正确性 → 后置条件。全部通过 = 此环节可信。</p></div>${verifyHtml}<div class="verify-summary">通过 <span class="verify-summary-count">${checkedCount} / ${totalItems}</span> 项</div>`;
+
+  // Apply annotations
+  for (const tab of Object.keys(rawTabContent)) {
+    renderAnnotations(nodeId, tab);
+  }
+
+  document.getElementById("panel").classList.add("open");
+  document.getElementById("flowchartContainer").classList.add("panel-open");
+  switchTab("overview");
+}
+
+function closePanel() {
+  document.getElementById("panel").classList.remove("open");
+  document.getElementById("flowchartContainer").classList.remove("panel-open");
+  document.querySelectorAll(".node-group").forEach(g => g.classList.remove("selected"));
+  currentNodeId = null;
+}
+
+// Tab switching
+function switchTab(tabId) {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
+  document.querySelectorAll(".tab-pane").forEach(p => p.classList.toggle("active", p.id === `pane-${tabId}`));
+}
+
+document.getElementById("tabBar").addEventListener("click", e => {
+  if (e.target.classList.contains("tab-btn")) switchTab(e.target.dataset.tab);
+});
+
+// Verify checkbox
+document.getElementById("pane-verify").addEventListener("change", e => {
+  if (!e.target.dataset.verifyIdx || !currentNodeId) return;
+  const idx = parseInt(e.target.dataset.verifyIdx);
+  if (!state.verifyChecks[currentNodeId]) state.verifyChecks[currentNodeId] = {};
+  state.verifyChecks[currentNodeId][idx] = e.target.checked;
+  saveState();
+  e.target.closest(".verify-item").classList.toggle("passed", e.target.checked);
+  const verify = CONTENTS[currentNodeId]?.verify || {};
+  const totalItems = (verify.pre || []).length + (verify.core || []).length + (verify.post || []).length;
+  const cnt = Object.values(state.verifyChecks[currentNodeId] || {}).filter(Boolean).length;
+  document.querySelector(".verify-summary-count").textContent = `${cnt} / ${totalItems}`;
+});
+
+// Modal helpers
+function showModal(id) { document.getElementById(`modal-${id}`).classList.add("open"); }
+function hideModal(id) { document.getElementById(`modal-${id}`).classList.remove("open"); }
+document.querySelectorAll(".modal-overlay").forEach(el => {
+  el.addEventListener("click", e => { if (e.target === el) el.classList.remove("open"); });
+});
+
+// ===================================================================
+//  Annotation System
+// ===================================================================
+function escapeHtml(str) { const div = document.createElement("div"); div.textContent = str; return div.innerHTML; }
+
+const ALL_TABS = new Set(["overview", "how", "verify", "code", "refs", "pitfalls"]);
+const ANNO_SELECTORS = "p, li, pre, dd, td, blockquote";
+
+// Overlay
+const annoOverlay = document.createElement("div");
+annoOverlay.className = "anno-overlay";
+document.body.appendChild(annoOverlay);
+
+// Popup
+const annoPopup = document.createElement("div");
+annoPopup.className = "anno-popup";
+annoPopup.innerHTML = `
+  <div class="anno-selected-preview" id="annoPreview"></div>
+  <div class="anno-popup-row">
+    <input type="text" class="anno-popup-input" id="annoInput" placeholder="写下你的批注...">
+    <button class="anno-popup-submit" id="annoSubmitBtn">提交</button>
+    <button class="anno-popup-cancel" id="annoCancelBtn">取消</button>
+  </div>
+`;
+document.body.appendChild(annoPopup);
+
+let annoSelectedText = "", annoActiveTab = "";
+
+// Click on block → open annotation popup
+document.querySelector(".tab-content-area").addEventListener("click", e => {
+  if (e.target.closest(".annotation-section")) return;
+  const hl = e.target.closest(".anno-highlight");
+  if (hl) {
+    document.querySelectorAll(".anno-highlight.touch-active").forEach(el => el.classList.remove("touch-active"));
+    hl.classList.add("touch-active");
+    setTimeout(() => hl.classList.remove("touch-active"), 3000);
+    return;
+  }
+
+  const block = e.target.closest(ANNO_SELECTORS);
+  if (!block) return;
+  const contentArea = document.querySelector(".tab-content-area");
+  if (!contentArea.contains(block)) return;
+  if (block.closest(".annotation-section")) return;
+
+  const activeTab = document.querySelector(".tab-btn.active")?.dataset.tab || "";
+  if (!currentNodeId || !ALL_TABS.has(activeTab)) return;
+
+  contentArea.querySelectorAll(".anno-unit-selected").forEach(el => el.classList.remove("anno-unit-selected"));
+  block.classList.add("anno-unit-selected");
+  annoSelectedText = block.textContent.trim();
+  annoActiveTab = activeTab;
+
+  const preview = document.getElementById("annoPreview");
+  preview.textContent = annoSelectedText.length > 120 ? annoSelectedText.substring(0, 120) + "..." : annoSelectedText;
+
+  annoOverlay.classList.add("show");
+  annoPopup.classList.add("show");
+  document.getElementById("annoInput").value = "";
+  setTimeout(() => document.getElementById("annoInput").focus(), 300);
+});
+
+function closeAnnoPopup() {
+  annoPopup.classList.remove("show");
+  annoOverlay.classList.remove("show");
+  annoPopup._flowTarget = null;
+  document.querySelector(".tab-content-area")
+    ?.querySelectorAll(".anno-unit-selected")
+    .forEach(el => el.classList.remove("anno-unit-selected"));
+}
+
+annoOverlay.addEventListener("click", closeAnnoPopup);
+document.getElementById("annoCancelBtn").addEventListener("click", closeAnnoPopup);
+
+function submitAnno() {
+  const comment = document.getElementById("annoInput").value.trim();
+  if (!comment) return;
+
+  if (annoPopup._flowTarget) {
+    // Flow chart annotation
+    const key = annoPopup._flowTarget;
+    if (!state.flowAnnotations[key]) state.flowAnnotations[key] = [];
+    state.flowAnnotations[key].push({ comment, time: new Date().toISOString() });
+    saveState();
+    closeAnnoPopup();
+    renderFlowAnnotations();
+    showToast("流程图批注已添加");
+  } else {
+    // Panel annotation
+    if (!currentNodeId || !annoActiveTab || !annoSelectedText) return;
+    if (!state.annotations[currentNodeId]) state.annotations[currentNodeId] = {};
+    if (!state.annotations[currentNodeId][annoActiveTab])
+      state.annotations[currentNodeId][annoActiveTab] = [];
+    state.annotations[currentNodeId][annoActiveTab].push({ text: annoSelectedText, comment });
+    saveState();
+    closeAnnoPopup();
+    refreshTab(currentNodeId, annoActiveTab);
+    showToast("批注已添加");
+  }
+}
+document.getElementById("annoSubmitBtn").addEventListener("click", submitAnno);
+document.getElementById("annoInput").addEventListener("keydown", e => { if (e.key === "Enter") submitAnno(); });
+
+// Render annotations
+function renderAnnotations(nodeId, tabId) {
+  const annos = state.annotations?.[nodeId]?.[tabId];
+  if (!annos || annos.length === 0) return;
+  const pane = document.getElementById(`pane-${tabId}`);
+  if (!pane) return;
+  let html = pane.innerHTML;
+  for (const anno of annos) {
+    if (anno.text) {
+      const escaped = anno.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`(?<![\">])${escaped}(?![^<]*>)`, "g");
+      let replaced = false;
+      html = html.replace(regex, match => {
+        if (replaced) return match;
+        replaced = true;
+        return `<mark class="anno-highlight" data-comment="${escapeHtml(anno.comment)}">${match}</mark>`;
+      });
+    }
+  }
+  html += `<div class="annotation-section"><div class="annotation-section-title">批注 (${annos.length})</div>`;
+  annos.forEach((anno, idx) => {
+    const preview = anno.text && anno.text.length > 50 ? anno.text.substring(0,50) + "..." : (anno.text || "(流程批注)");
+    html += `<div class="annotation-item"><div class="annotation-text"><strong>"${escapeHtml(preview)}"</strong><br>${escapeHtml(anno.comment)}</div><button class="annotation-delete" data-anno-idx="${idx}" data-anno-tab="${tabId}">&times;</button></div>`;
+  });
+  html += "</div>";
+  pane.innerHTML = html;
+}
+
+function refreshTab(nodeId, tabId) {
+  const pane = document.getElementById(`pane-${tabId}`);
+  if (!pane || !rawTabContent[tabId]) return;
+  pane.innerHTML = rawTabContent[tabId];
+  renderAnnotations(nodeId, tabId);
+}
+
+// Delete annotation
+document.querySelector(".tab-content-area").addEventListener("click", e => {
+  if (!e.target.classList.contains("annotation-delete")) return;
+  const idx = parseInt(e.target.dataset.annoIdx);
+  const tab = e.target.dataset.annoTab;
+  if (!currentNodeId || !state.annotations?.[currentNodeId]?.[tab]) return;
+  state.annotations[currentNodeId][tab].splice(idx, 1);
+  if (state.annotations[currentNodeId][tab].length === 0) delete state.annotations[currentNodeId][tab];
+  saveState();
+  refreshTab(currentNodeId, tab);
+  showToast("批注已删除");
+});
+
+// Export
+function exportAnnotations() {
+  if (!state.annotations && !state.flowAnnotations) { showToast("没有批注"); return; }
+  const tabNames = {overview:"概述", how:"How", code:"Code", verify:"Verify", refs:"参考", pitfalls:"踩坑"};
+  const lines = [];
+
+  // Flow annotations
+  for (const [key, annos] of Object.entries(state.flowAnnotations || {})) {
+    for (const anno of annos) {
+      lines.push(`[流程图] [${key}] ${anno.comment}`);
+    }
+  }
+
+  // Node annotations
+  for (const nodeId of CONTENT_NODES) {
+    const nodeAnnos = state.annotations?.[nodeId];
+    if (!nodeAnnos) continue;
+    for (const [tab, annos] of Object.entries(nodeAnnos)) {
+      for (const anno of annos) {
+        lines.push(`[${CONTENTS[nodeId]?.title || nodeId}] [${tabNames[tab]||tab}] "${anno.text}" → ${anno.comment}`);
+      }
+    }
+  }
+
+  if (lines.length === 0) { showToast("没有批注"); return; }
+  navigator.clipboard.writeText(lines.join("\n")).then(() => showToast(`已复制 ${lines.length} 条批注`)).catch(() => prompt("请手动复制：", lines.join("\n")));
+}
+
+// Toast
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2000);
+}
+
+// ===================================================================
+//  Flow Chart Annotation Mode
+// ===================================================================
+let annoModeOn = false;
+
+function toggleAnnoMode() {
+  annoModeOn = !annoModeOn;
+  document.body.classList.toggle("anno-mode-on", annoModeOn);
+  document.getElementById("annoModeBtn").classList.toggle("active", annoModeOn);
+  if (annoModeOn) closePanel();
+}
+
+// Click handler for flow chart
+document.getElementById("flowchartSvg").addEventListener("click", e => {
+  if (!annoModeOn) {
+    const grp = e.target.closest(".node-group");
+    if (!grp) return;
+    const nid = grp.dataset.node;
+    if (CONTENT_NODES.includes(nid)) openPanel(nid);
+    return;
+  }
+
+  // Anno mode
+  const grp = e.target.closest(".node-group");
+  const edgeLine = e.target.closest(".edge-line");
+
+  let targetKey = null;
+  let targetLabel = "";
+
+  if (grp) {
+    targetKey = "node:" + grp.dataset.node;
+    const nodeData = GRAPH_NODES.find(n => n.id === grp.dataset.node);
+    targetLabel = nodeData ? nodeData.label : grp.dataset.node;
+  } else if (edgeLine) {
+    const edges = document.querySelectorAll(".edge-line");
+    let edgeIdx = Array.from(edges).indexOf(edgeLine);
+    if (edgeIdx >= 0 && edgeIdx < GRAPH_EDGES.length) {
+      const edge = GRAPH_EDGES[edgeIdx];
+      targetKey = "edge:" + edge.from + "->" + edge.to;
+      targetLabel = edge.from + " → " + edge.to + (edge.label ? " (" + edge.label + ")" : "");
+    }
+  }
+
+  if (!targetKey) return;
+
+  const preview = document.getElementById("annoPreview");
+  preview.textContent = "📍 " + targetLabel;
+  annoOverlay.classList.add("show");
+  annoPopup.classList.add("show");
+  document.getElementById("annoInput").value = "";
+  annoPopup._flowTarget = targetKey;
+  setTimeout(() => document.getElementById("annoInput").focus(), 300);
+});
+
+// Render flow annotation markers on SVG
+function renderFlowAnnotations() {
+  document.querySelectorAll(".flow-anno-marker").forEach(el => el.remove());
+
+  const svg = document.getElementById("flowchartSvg");
+  const offsetX = 40, offsetY = 40;
+
+  for (const [key, annos] of Object.entries(state.flowAnnotations || {})) {
+    if (!annos || annos.length === 0) continue;
+
+    let cx, cy;
+    if (key.startsWith("node:")) {
+      const nid = key.substring(5);
+      const node = dagreGraph.node(nid);
+      if (!node) continue;
+      cx = node.x + offsetX + node.width / 2 - 4;
+      cy = node.y + offsetY - node.height / 2 + 4;
+    } else if (key.startsWith("edge:")) {
+      const parts = key.substring(5).split("->");
+      if (parts.length !== 2) continue;
+      const edgeData = dagreGraph.edge(parts[0], parts[1]);
+      if (!edgeData || !edgeData.points) continue;
+      const mid = edgeData.points[Math.floor(edgeData.points.length / 2)];
+      cx = mid.x + offsetX + 12;
+      cy = mid.y + offsetY;
+    } else continue;
+
+    const marker = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    marker.classList.add("flow-anno-marker");
+    marker.dataset.annoKey = key;
+    marker.innerHTML = `<circle cx="${cx}" cy="${cy}" r="10"/><text x="${cx}" y="${cy}">${annos.length}</text>`;
+
+    marker.addEventListener("click", e => {
+      e.stopPropagation();
+      showFlowAnnoTooltip(key, e.clientX, e.clientY);
+    });
+
+    svg.appendChild(marker);
+  }
+}
+
+// Flow annotation tooltip
+const flowTooltip = document.createElement("div");
+flowTooltip.className = "flow-anno-tooltip";
+document.body.appendChild(flowTooltip);
+
+function showFlowAnnoTooltip(key, x, y) {
+  const annos = state.flowAnnotations[key] || [];
+  if (annos.length === 0) return;
+
+  flowTooltip.innerHTML = annos.map((a, idx) =>
+    `<div style="margin-bottom:6px">${escapeHtml(a.comment)}<span class="flow-anno-delete" data-fkey="${key}" data-fidx="${idx}"> ✕ 删除</span></div>`
+  ).join("");
+
+  flowTooltip.style.left = Math.min(x, window.innerWidth - 340) + "px";
+  flowTooltip.style.top = (y + 16) + "px";
+  flowTooltip.classList.add("show");
+}
+
+document.addEventListener("click", e => {
+  if (e.target.classList.contains("flow-anno-delete")) {
+    const key = e.target.dataset.fkey;
+    const idx = parseInt(e.target.dataset.fidx);
+    if (state.flowAnnotations[key]) {
+      state.flowAnnotations[key].splice(idx, 1);
+      if (state.flowAnnotations[key].length === 0) delete state.flowAnnotations[key];
+      saveState();
+      renderFlowAnnotations();
+      flowTooltip.classList.remove("show");
+      showToast("流程图批注已删除");
+    }
+    return;
+  }
+  if (!flowTooltip.contains(e.target) && !e.target.closest(".flow-anno-marker")) {
+    flowTooltip.classList.remove("show");
+  }
+});
+
+// ===================================================================
+//  Boot
+// ===================================================================
+loadMap();
+</script>
+</body>
+</html>
