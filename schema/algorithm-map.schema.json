@@ -24,7 +24,21 @@
         "phase":   { "type": "string", "description": "当前阶段标识，如 'Phase 1: 基础 B&P'" },
         "project": { "type": "string", "description": "关联项目路径" },
         "created": { "type": "string", "format": "date", "description": "创建日期 YYYY-MM-DD" },
-        "updated": { "type": "string", "format": "date", "description": "最后更新日期" }
+        "updated": { "type": "string", "format": "date", "description": "最后更新日期" },
+        "benchmark": {
+          "type": "object",
+          "description": "测试基准（标准 benchmark 算例）",
+          "additionalProperties": false,
+          "properties": {
+            "file":          { "type": "string", "description": "算例文件名，如 E-n13-k4" },
+            "known_optimal": { "type": ["number", "null"], "description": "已知最优值" },
+            "source":        { "type": "string", "description": "来源，如 CVRPLIB" }
+          }
+        },
+        "test_instance": {
+          "type": "string",
+          "description": "第三步产出的小实例及已知答案（Markdown 格式），供 build 阶段验证使用"
+        }
       }
     },
 

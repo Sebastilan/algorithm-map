@@ -28,6 +28,13 @@
   - 发现并修复 B&B 列池 bug（子节点丢失父节点 CG 列）
   - 测试实例设计：T3（integer at root）+ T4（forcing branching）
 
+## Phase 1.6: 协议迭代（ALNS 测试驱动）✅
+
+- [x] ALNS-CVRP 测试 `/map plan`，发现"5步散文→JSON"模式的系统性问题
+- [x] 重构 `generate-map.md`：5步连续 → 两阶段增量构建（Phase A 骨架 + Phase B 验证）
+- [x] 新增算法类型分类验证指南（确定性/随机/数值迭代/数据处理）
+- [x] 同步更新 `/map` 技能副本（references/generate.md + SKILL.md）
+
 ## Phase 2: CC-Commander 集成 ← 下一阶段
 
 - [ ] PM 路由：识别复杂算法任务

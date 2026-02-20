@@ -1,286 +1,309 @@
 # 算法地图生成规范
 
-本文档是 Claude Code 生成算法地图 JSON 的规范。遵循此规范可产出符合 schema 的 JSON，渲染器可直接渲染为交互式流程图。
+## 适用场景
 
-## 什么时候用算法地图
+- 算法有多步骤、分支/循环结构
+- 预计代码超 500 行或跨多轮对话
+- 用户不读代码，靠验证建立信任
 
-**用**：
-- 算法有多个步骤、存在分支/循环/并行结构
-- 用户不写代码，需要通过验证来确认正确性
-- 预计实现代码超过 500 行，或跨越多轮对话
-- 算法来自论文/教科书，需要分步理解和实现
+## 前置条件
 
-**不用**：
-- 简单的线性脚本（几十行就能搞定）
-- 纯 CRUD / 配置类任务
-- 用户自己能读懂代码
+需求已在对话中讨论清楚。CC 是技术方案制定者，用户是审核者。**不问问题，直接出图。** 除非需求不清楚，可以向用户发问。
 
-## 生成流程
+## 执行纪律
 
-### 第一步：厘清算法
+**两阶段增量构建 JSON，不写散文再翻译。**
 
-与用户对话，搞清楚以下信息。不急着生成 JSON，先在文字层面达成共识。
+| 阶段 | 做什么 | JSON 产物 | 结束动作 |
+|------|--------|----------|---------|
+| **Phase A** | 理解算法 → 节点方案 → 写 JSON | graph 完整 + contents 主体 + verify 留空 | 渲染器 URL → **用户审阅流程图** |
+| **Phase B** | 示例数据 → 接口 → 验证设计 → 校验 | verify 完整 + meta.test_instance 完整 | 校验通过 → **用户审阅完整地图** |
 
-```
-必须弄清的问题：
-1. 这个算法解决什么问题？输入什么、输出什么？
-2. 算法的整体策略是什么？（穷举？分治？迭代？）
-3. 有哪些关键步骤？哪些地方有分支或循环？
-4. 停止条件是什么？
-5. 有参考论文或开源实现吗？
-6. 目标编程语言和依赖（如 Gurobi、PyTorch）？
-```
+**核心原则**：
+- **增量写文件**：每阶段产物直接写入 JSON 文件。Phase B 读取 Phase A 写的文件继续工作，不依赖对话记忆
+- **对话从简**：对话中只输出简要说明（标注步骤号），详细内容直接进 JSON
+- **每阶段内连续执行不暂停**，阶段之间等待用户确认
 
-### 第二步：画流程图（graph 层）
+**调研控制**：
+- **默认用自身知识**——CC 的训练数据覆盖绝大多数经典算法，直接用即可
+- **不要"为了确认"而调研**——只在"确实不知道关键实现细节"时才搜索
+- **禁止启动 Task 子 Agent 做调研**——如需搜索，在主对话中用 WebSearch，单次聚焦，3 分钟内完成
+- 如果用户提供了论文/参考资料，直接读取，不要自己去搜
 
-确定节点和连接关系。先用文字列出来让用户确认，再转 JSON。
+---
 
-**节点类型选择：**
+## Phase A：骨架
 
-| 类型 | 用途 | 形状 | 举例 |
-|------|------|------|------|
-| `terminal` | 起止点 | 椭圆 | "开始"、"输出结果" |
-| `process` | 核心步骤 | 圆角矩形 | "求解 RMP"、"定价子问题" |
-| `decision` | 判断分支 | 菱形 | "负 RC 列?"、"整数解?" |
-| `auxiliary` | 辅助操作 | 小矩形 | "更新 UB"、"剪枝" |
+### A1. 理解算法，输出伪代码
 
-**设计原则：**
-- `process` 节点是主角，每个都有详细的六维内容和验证体系
-- `decision` 用于分支判断，label 用问句，边上标"是/否"
-- `auxiliary` 用于简单操作（不值得专门写验证的），不生成状态点
-- `terminal` 只用于起止
-- 节点 id 用蛇形命名：`01_initialize`、`04_pricing`
-- 核心步骤带编号前缀：`01_`、`02_`……辅助节点不编号
-- 节点数量：通常 8-15 个（太少说明拆得不够细，太多说明把细节塞进了流程图）
+- **输入**：对话上下文中的需求共识
+- **输出**：对话中输出伪代码（Python 风格，注释标注逻辑分组），标注 `=== A1 伪代码 ===`
+- 这是最重要的一步——伪代码是后续所有工作的基础
+- 如果自身知识不足，拒绝编造臆想，可以网上搜索
 
-**区域（regions）：**
-- 用于标注循环或逻辑分组
-- 同一个节点可以属于多个区域（如"列生成循环"嵌套在"分支定界"内）
+伪代码示例：
 
-### 第三步：填内容（contents 层）
+```python
+def BPC(instance):
+    data = initialize(instance)
+    columns = initial_columns(data)
+    UB = greedy(data)
 
-为每个 `process` 和 `decision` 类型的核心节点填写六维内容。`terminal` 和 `auxiliary` 通常不需要。
-
-**六维内容模板：**
-
-#### overview（概述）
-```markdown
-### 一句话
-[这步做什么，一句话说清]
-
-### 输入 → 输出
-- **输入**：[具体的数据和格式]
-- **输出**：[具体的数据和格式]
-
-### 为什么需要
-[这步在整体算法中的角色，删掉会怎样]
-
-### 数学模型（如有）
-$$...$$
+    queue = [root_node]
+    while queue:                         # --- B&B 主循环 ---
+        node = queue.pop()
+        while True:                      # --- 列生成循环 ---
+            obj, x = solve_RMP(columns, node.bounds)
+            duals = extract_duals()
+            new_col = pricing(duals, data)
+            if new_col.rc >= 0: break    # CG 收敛
+            columns.add(new_col)
+        if is_integer(x):                # 整数解 → 更新上界
+            UB = min(UB, obj)
+        elif obj < UB:                   # 分数解 → 分支
+            children = branch(node, x)
+            queue.extend(children)
+    return best_solution
 ```
 
-#### how（实现方法）
-```markdown
-### 算法思路
-[用人话说明白核心逻辑]
+### A2. 逐节点确定方案
 
-### 核心逻辑
-1. [步骤 1]
-2. [步骤 2]
-...
+- **输入**：A1 的伪代码
+- **方法**：用自身知识为每个节点选定方案。只在确实不知道关键细节时才搜索（不要"为了确认"而搜索）
+- **输出**：对话中简要列出各节点的选定方案和一句话理由，标注 `=== A2 节点方案 ===`
+- 不要在对话中输出详细伪代码——详细实现直接写入 JSON 的 contents.how
+- **选经典方案，不追前沿**。Plan 阶段目标是"跑通"，不是"最优"。前沿优化留给 build 之后。经过验证的、业界常用的、稳定的方案就是最好的选择
 
-### 设计决策
-- [为什么选择这个方案而非另一个]
-```
+### A3. 判断算法类型
 
-#### verify（验证 — 见下文详细说明）
+对话中标注 `=== A3 算法类型：xxx ===`。这个判断决定 Phase B 的验证策略。
 
-#### code（代码）
-```json
-{
-  "files": ["src/module.py"],
-  "snippet": "```python\n# 核心实现片段\n```"
-}
-```
-规划阶段 `files` 和 `snippet` 可以为空，Build 阶段填充。
+| 类型 | 特征 | 验证核心思路 |
+|------|------|-------------|
+| **确定性精确算法** | 有数学最优保证（LP/MIP/DP/精确 B&B） | 精确比对 + 交叉求解器 |
+| **随机/启发式算法** | 含随机性，无最优保证（ALNS/GA/SA/蒙特卡洛） | 固定种子精确验证 + 统计性质 + 多次运行 |
+| **数值迭代算法** | 迭代逼近（梯度下降/牛顿法/迭代求解器） | 单步精确比对 + 收敛速度 + 精度容差 |
+| **数据处理流水线** | 变换序列（ETL/特征工程） | 变换正确性 + 数据完整性 + 端到端比对 |
 
-#### refs（参考）
-```markdown
-### 关键参考
-- **论文/书名**：具体哪部分有用
-- **开源实现**：链接 + 说明
-```
+### A4. 生成 JSON 骨架
 
-#### pitfalls（踩坑）
-规划阶段为空字符串 `""`，Build 阶段遇到问题时填充。
+将 A1-A3 的产物写入 `algorithm-map.json`：
 
-### 第四步：设计验证体系（核心）
+**填充内容**：
+- `meta`：标题、日期、benchmark 信息
+- `graph`：完整的 nodes + edges + regions
+- `contents`：每个 process/decision 节点填写 title / overview / how / refs / pitfalls
+- `verify`：**留空**（`{"pre":[], "core":[], "post":[]}`），Phase B 填充
+- `state`：所有 process 节点 → `not_started`
+- `code`：留空
 
-**这是算法地图的灵魂。** 验证体系决定了用户能否在不读代码的情况下信任结果。
+**转换规则**：
+- 函数调用 → `process` 节点
+- if/else → `decision` 节点（整体一个节点，不拆分各分支）
+- while 范围 → `region`
+- 起止 → `terminal` 节点
 
-#### 三层验证结构
+**节点粒度**：一个 process ≈ 一个可独立测试的函数。简单赋值合并到相邻 process。auxiliary 仅用于图上不可缺少的中间标注，不承载实现逻辑。只有 process 和含判断逻辑的 decision 需要填 contents。
 
-```
-前置条件 (pre)  → 本步骤启动前，上游给的输入必须满足什么
-核心验证 (core) → 本步骤的实现本身是否正确
-后置条件 (post) → 本步骤的输出，下游消费时可以依赖什么保证
-```
+**A4 自检**：
+- 所有 edge 的 from/to 引用了存在的 node id
+- decision 节点的出边有 label
+- regions 中的 node id 都存在
 
-#### 链式信任规则
-
-**环节 A 的后置条件 必须覆盖 环节 B 的前置条件**（当 A→B 有边时）。
+**收尾**：写入 JSON，启动渲染器，输出 URL：
 
 ```
-环节 A post: "输出 X 满足条件 P"
-    ‖ 这两个必须能对上
-环节 B pre:  "输入 X 满足条件 P"
+=== Phase A 完成 ===
+渲染器 URL: http://localhost:8765/renderer/render.html?src=...
+请审阅流程图结构，确认后继续 Phase B。
 ```
 
-生成时逐对检查：沿着每条边，确认上游 post 能保证下游 pre。如果对不上，要么补上遗漏的 post，要么上游的实现有设计缺陷。
+---
 
-#### pre / post 格式
+## Phase B：验证
 
-```json
-{
-  "desc": "距离矩阵对称且非负",
-  "check": "dist[i][j] == dist[j][i], dist[i][i] == 0"
-}
+**从文件读取 Phase A 生成的 JSON**（不依赖对话记忆）。
+
+### B1. 设计数据结构 + 构造示例数据
+
+- 设计节点间传递的数据结构，对话中简要输出
+- 构造最小规模示例数据：
+  - 能触发所有分支路径
+  - 有已知正确答案（手算 / 枚举 / 标准算例）
+  - 优先用行业标准测试数据，没有再自造
+- 写入 JSON `meta.test_instance`（Markdown 格式）
+
+### B2. 定义接口
+
+为每个 process/decision 节点填写 `verify.pre` 和 `verify.post`：
+- 格式：`{"desc": "条件描述", "check": "断言表达式"}`
+- 逐条边检查：上游 post 能保证下游 pre
+
+### B3. 设计分层验证
+
+**根据 A3 的算法类型**，为每个节点设计 `verify.core`。
+
+**格式**（严格遵守，禁止写成字符串数组）：
+- pre/post 每项：`{"desc": "条件描述", "check": "断言表达式"}`
+- core 每项：`{"desc": "验证描述", "level": "L1", "method": "验证方法"}`
+
+**安放规则**：
+- L1 → 各 process 节点的 verify.core
+- L2 → region 最后一个 process 节点的 verify.core（level: "L2"）
+- L3 → 全图最后一个 **process** 节点的 verify.core（level: "L3"）
+
+**质量底线**：禁止"输出非空"、"格式正确"、"运行无报错"这类永远通过的验证。好的验证能区分正确实现和错误实现。
+
+#### 按算法类型的验证设计指南
+
+**确定性精确算法**：
+
+| 层级 | 策略 | 示例 |
+|------|------|------|
+| L1 | 示例数据 → 精确比对期望值 | solve_RMP → obj == 51.0 |
+| L2 | 独立求解器交叉验证 | CG 循环 LP 值 == Gurobi LP 值 |
+| L3 | = 标准 benchmark 已知最优 | BPC(E-n13-k4) == 247 |
+
+**随机/启发式算法**：
+
+| 层级 | 策略 | 示例 |
+|------|------|------|
+| L1 | **固定种子 → 确定化 → 精确比对**。用极端参数消除随机选择（如 p=100 使概率选择确定化） | worst_removal(p=100) 移除 cost 最大的客户 |
+| L2 | **统计性质测试**：分布、收敛趋势、单调性 | 轮盘赌 weights=[1,3,1]，10000 次采样，idx=1 频率 ∈ [0.55, 0.65] |
+| L3 | **多次运行统计**：N 次运行报告 best/avg/worst。阈值需论证（引用文献 gap 或预实验） | ALNS(E-n13-k4) 10 次，best ≤ 255，avg ≤ 265 |
+
+**数值迭代算法**：
+
+| 层级 | 策略 | 示例 |
+|------|------|------|
+| L1 | 单步迭代输入→输出精确比对 | 一步梯度下降：x_new == x - lr * grad |
+| L2 | 收敛速度在理论上界内 | 强凸函数 100 步内 loss < 1e-6 |
+| L3 | 最终精度在容差内 | 解与解析解误差 < 1e-8 |
+
+**数据处理流水线**：
+
+| 层级 | 策略 | 示例 |
+|------|------|------|
+| L1 | 单步变换输入→输出比对 | normalize(col) → mean≈0, std≈1 |
+| L2 | 数据完整性检查 | 合并后行数 == 左表行数 |
+| L3 | 端到端输出与参考输出比对 | 最终特征矩阵 == 参考输出 |
+
+### B4. 校验 + 出图
+
+更新 JSON 文件后，执行校验：
+
+1. **JSON 合法**：json.load 正常解析
+2. **边引用完整**：所有 edge from/to 对应存在的 node id
+3. **Post→Pre 衔接**：逐条边检查上游 post 能保证下游 pre
+4. **Verify 非空**：所有 process 节点的 verify.core 至少 1 项
+5. **State 完整**：所有 process 节点在 state.nodes 中有条目
+
+校验通过后，更新渲染器文件，输出 URL：
+
 ```
-- `desc`：人能读懂的条件描述
-- `check`：可执行的断言表达式或验证方法（供 AI 写测试时参考）
-
-#### core 格式
-
-```json
-{
-  "desc": "T3 穷举验证：返回列确实是 RC 最小的",
-  "level": "L1",
-  "method": "3 客户实例穷举所有路径，比对 pricing 返回结果",
-  "cmd": "pytest test_pricing.py::test_t3_exhaustive -v"
-}
-```
-- `level`：`L1` 单元级（必过），`L2` 集成级，`L3` 端到端
-- `method`：验证策略说明
-- `cmd`：可执行的测试命令（Build 阶段填，Plan 阶段可留空）
-
-#### 验证设计原则
-
-1. **抓本质，不堆数量**：找到这一步"对不对"的数学/逻辑判据，用最少的检查覆盖它。一条直击要害的验证胜过十条表面指标
-2. **小实例对答案**：构造一个足够小的算例（3-5 节点/变量），用已知最优解或暴力求解作为 ground truth，比对算法输出。例如列生成本质是松弛 MIP——小算例上直接求解、比对最优值即可
-3. **可执行优先**：每个验证项最终都要能跑，纯文字描述不够
-4. **黑盒优先**：尽量通过输入输出验证，不依赖内部状态
-5. **pre/post 要互相能接上**：这是链式信任的基础
-
-> **反面教材**：不要为了凑数写 "输出格式正确"、"变量非空"、"运行无报错" 这类几乎永远通过的验证。好的验证应该能区分正确实现和错误实现。
-
-### 第五步：初始化状态（state 层）
-
-规划阶段所有节点状态为 `not_started`，验证结果为空数组。
-
-```json
-"state": {
-  "nodes": {
-    "01_initialize": {
-      "status": "not_started",
-      "verify_results": { "pre": [], "core": [], "post": [] }
-    }
-  },
-  "annotations": { "flow": [], "node": [] }
-}
+=== Phase B 完成 ===
+渲染器 URL: http://localhost:8765/renderer/render.html?src=...
+请审阅完整地图（节点方案 + 验证设计）。
 ```
 
-## JSON 格式速查
+---
+
+## JSON 骨架
 
 ```json
 {
   "version": "0.1.0",
-  "meta": {
-    "title": "算法名称",
-    "phase": "Phase 1: ...",
-    "project": "项目路径（可选）",
-    "created": "YYYY-MM-DD",
-    "updated": "YYYY-MM-DD",
-    "benchmark": {
-      "file": "data/instance.vrp",
-      "known_optimal": 247,
-      "source": "CVRPLIB / TSPLIB / 文献"
-    }
-  },
+  "meta": { "title": "", "phase": "plan", "created": "", "updated": "",
+            "benchmark": { "file": "", "known_optimal": null, "source": "" },
+            "test_instance": "示例数据完整文本（Markdown）" },
   "graph": {
-    "nodes": [
-      { "id": "start", "label": "开始", "type": "terminal" },
-      { "id": "01_step_name", "label": "1. 步骤名", "sub": "副标题", "type": "process" },
-      { "id": "check_xxx", "label": "条件?", "type": "decision" },
-      { "id": "aux_action", "label": "辅助动作", "type": "auxiliary" }
-    ],
-    "edges": [
-      { "from": "start", "to": "01_step_name" },
-      { "from": "check_xxx", "to": "01_step_name", "label": "是" }
-    ],
-    "regions": [
-      { "label": "主循环", "nodes": ["01_step_name", "check_xxx"] }
-    ]
+    "nodes": [{ "id": "01_xxx", "label": "步骤名", "type": "process" }],
+    "edges": [{ "from": "start", "to": "01_xxx" }],
+    "regions": [{ "label": "主循环", "nodes": ["01_xxx"] }]
   },
   "contents": {
-    "01_step_name": {
-      "title": "1. 步骤名",
-      "overview": "Markdown...",
-      "how": "Markdown...",
+    "01_xxx": {
+      "title": "", "overview": "", "how": "",
       "verify": {
-        "pre":  [{ "desc": "...", "check": "..." }],
-        "core": [{ "desc": "...", "level": "L1", "method": "...", "cmd": "" }],
-        "post": [{ "desc": "...", "check": "..." }]
+        "pre":  [{"desc": "条件描述", "check": "断言表达式"}],
+        "core": [{"desc": "验证描述", "level": "L1", "method": "验证方法"}],
+        "post": [{"desc": "条件描述", "check": "断言表达式"}]
       },
-      "code": { "files": [], "snippet": "" },
-      "refs": "",
-      "pitfalls": ""
+      "code": { "files": [], "snippet": "" }, "refs": "", "pitfalls": ""
     }
   },
-  "state": { "..." }
+  "state": {
+    "nodes": { "01_xxx": { "status": "not_started",
+      "verify_results": { "pre": [], "core": [], "post": [] } } }
+  }
 }
 ```
 
-**字段约束：**
-- `id`：只能用 `[a-z0-9_]`
-- `type`：只能是 `process` / `decision` / `terminal` / `auxiliary`
-- `level`：只能是 `L1` / `L2` / `L3`
-- `status`：只能是 `not_started` / `discussing` / `theory_ok` / `implemented` / `verified`
-- Markdown 字段中 LaTeX 用 `$...$`（行内）和 `$$...$$`（块级）
+## 升级已有地图（`/map upgrade`）
 
-## 生成后自检
+目标项目已有 `algorithm-map.json` 且部分/全部节点已 build 完成，用户要求升级某个节点的实现方案或新增节点。
 
-生成 JSON 后，逐项检查：
+### U1. 读取现有地图 + 理解升级需求
 
-- [ ] 所有 `from`/`to` 引用的 id 都存在于 `nodes` 中
-- [ ] 每个 `process` 节点在 `contents` 中都有内容
-- [ ] 每条 A→B 边：A 的 post 能覆盖 B 的 pre
-- [ ] 每个 `process` 节点的 core 验证直击正确性本质（不求多，但必须能区分对错）
-- [ ] `state.nodes` 包含了所有在 `contents` 中出现的节点
-- [ ] `regions` 中引用的节点 id 都存在
-- [ ] JSON 可通过 `python -m json.tool` 校验
-- [ ] Markdown 字段中没有未转义的特殊字符影响 JSON 解析
+- 读取目标项目的 `algorithm-map.json`
+- 对话中简要输出当前地图结构（节点列表 + 各节点状态）
+- 确认用户意图：升级哪个节点 / 新增什么节点 / 新方案是什么
+
+### U2. 影响分析
+
+判断升级类型和影响范围：
+
+| 类型 | 描述 | 影响范围 | 示例 |
+|------|------|---------|------|
+| **接口不变** | 只改内部实现，pre/post 不变 | 仅当前节点 | greedy_insertion → regret-3 insertion |
+| **接口变更** | post 条件变化，影响下游 pre | 当前节点 + 下游受影响节点 | 增加时间窗 → Data 结构变化 → 多节点连锁 |
+| **新增节点** | 添加新 process 节点 | 新节点 + 相邻节点的边调整 | 新增 cluster_removal 算子 |
+
+对话中输出影响分析，标注 `=== U2 影响分析 ===`：
+- 将修改的节点列表
+- 将重置状态的节点列表
+- 不受影响的节点列表
+- 如果影响范围 > 3 个节点，提醒用户确认再继续
+
+### U3. 修改地图
+
+**升级已有节点**：
+- 更新 contents（how / overview / refs / pitfalls 中受影响的部分）
+- 更新 verify.core（新方案可能需要新的验证项）
+- 如果 post 变了，检查并更新下游节点的 pre
+
+**新增节点**：
+- graph.nodes 添加节点
+- graph.edges 添加/调整边（如果插在两个已有节点之间，删旧边加两条新边）
+- graph.regions 按需更新
+- 填写完整 contents（title / overview / how / verify / refs / pitfalls）
+- state.nodes 添加条目（not_started）
+
+**状态重置**：
+- 被修改的节点 → `not_started`，verify_results 清空
+- 接口变更时，下游受影响的节点也重置
+- **未受影响的节点保持原状态不动**——这是升级的核心价值：不破坏已验证的部分
+
+### U4. 校验 + 出图
+
+同 B4 校验流程。额外检查：
+- 新增的边引用合法
+- 重置的节点 state 正确
+
+输出变更摘要：
+
+```
+=== 升级完成 ===
+修改节点：05_destroy（shaw_removal → RL-based removal）
+新增节点：无
+重置节点：05_destroy
+未受影响：01_parse, 02_init_sol, 03_init_weights, ...（保持 verified）
+渲染器 URL: http://localhost:8765/renderer/render.html?src=...
+请审阅变更，确认后用 /map build 重建受影响的节点。
+```
+
+---
 
 ## 处理用户反馈
 
-用户通过渲染器批注后会生成 `.feedback.md`，格式如下：
-
-```markdown
-# Feedback: 算法名
-- Date: 2026-02-20T15:30:00
-- Source: ../examples/xxx.json
-- Annotations: 5
-
-## Flow
-- [node:01_initialize] 这里应该加一步数据预处理
-
-## 1. 初始化
-- [Overview] "初始列集合" → 需要说明什么是初始列
-- [Verify] "T3 穷举验证" → 加上边界情况
-```
-
-收到反馈后：
-1. 读取 `.feedback.md`
-2. 按节点定位到 JSON 中对应位置
-3. 修改内容（增删节点、修改文字、补充验证）
-4. 重新写入 JSON
-5. 告知用户刷新浏览器查看
+用户在渲染器批注后生成 `.feedback.md`，读取后按节点修改 JSON，告知用户刷新浏览器。
