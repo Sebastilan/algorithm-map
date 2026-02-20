@@ -524,6 +524,7 @@ let GRAPH_NODES = [];
 let GRAPH_EDGES = [];
 let REGIONS = [];
 let CONTENT_NODES = [];   // Node IDs that have content (equivalent to TEACHING_NODES)
+let PROCESS_CONTENT_NODES = []; // Process-type nodes with content (for progress tracking)
 let CONTENTS = {};        // mapData.contents
 let dagreGraph = null;    // dagre layout result
 
@@ -590,6 +591,10 @@ async function loadMap() {
   REGIONS = mapData.graph.regions || [];
   CONTENTS = mapData.contents || {};
   CONTENT_NODES = Object.keys(CONTENTS);
+  PROCESS_CONTENT_NODES = CONTENT_NODES.filter(id => {
+    const node = GRAPH_NODES.find(n => n.id === id);
+    return node && node.type === "process";
+  });
 
   // Header
   document.getElementById("mapTitle").textContent = mapData.meta.title || "算法地图";
@@ -713,7 +718,52 @@ function layoutGraph() {
   });
 
   dagre.layout(g);
+
+  // Post-process: clip edge endpoints to actual shapes (diamond/ellipse)
+  g.edges().forEach(e => {
+    const edge = g.edge(e);
+    const pts = edge.points;
+    if (!pts || pts.length < 2) return;
+
+    // Clip first point to source shape boundary
+    const src = g.node(e.v);
+    if (src && src.type !== "process" && src.type !== "auxiliary") {
+      const clipped = clipToShape(src, pts[1].x, pts[1].y);
+      pts[0] = clipped;
+    }
+
+    // Clip last point to target shape boundary
+    const tgt = g.node(e.w);
+    if (tgt && tgt.type !== "process" && tgt.type !== "auxiliary") {
+      const clipped = clipToShape(tgt, pts[pts.length - 2].x, pts[pts.length - 2].y);
+      pts[pts.length - 1] = clipped;
+    }
+  });
+
   return g;
+}
+
+// Clip a line from (px, py) to node center to the actual shape boundary
+function clipToShape(node, px, py) {
+  const cx = node.x, cy = node.y;
+  const dpx = px - cx, dpy = py - cy;
+
+  if (node.type === "decision") {
+    const hw = node.width / 2, hh = node.height / 2;
+    const denom = Math.abs(dpx) / hw + Math.abs(dpy) / hh;
+    if (denom < 0.001) return { x: cx, y: cy - hh }; // fallback to top
+    const t = 1 / denom;
+    return { x: cx + dpx * t, y: cy + dpy * t };
+  }
+
+  if (node.type === "terminal") {
+    const rx = node.width / 2, ry = node.height / 2;
+    const angle = Math.atan2(dpy, dpx);
+    return { x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) };
+  }
+
+  // Rectangle: dagre already handles correctly
+  return { x: px, y: py };
 }
 
 // ===================================================================
@@ -763,7 +813,9 @@ function renderFlowchart(g) {
       svgContent += `<path class="edge-line" d="${d}" marker-end="url(#arrowhead)"/>`;
       if (edge.label) {
         const mid = points[Math.floor(points.length / 2)];
-        svgContent += `<text class="edge-label" x="${mid.x + offsetX + 6}" y="${mid.y + offsetY - 6}">${edge.label}</text>`;
+        const lx = mid.x + offsetX + 8, ly = mid.y + offsetY - 8;
+        svgContent += `<rect x="${lx - 4}" y="${ly - 12}" width="${edge.label.length * 12 + 8}" height="16" rx="3" fill="white" opacity="0.85"/>`;
+        svgContent += `<text class="edge-label" x="${lx}" y="${ly}">${edge.label}</text>`;
       }
     }
   });
@@ -802,11 +854,9 @@ function renderFlowchart(g) {
       svgContent += `<text class="node-sublabel" x="${cx}" y="${cy + 11}">${n.sub}</text>`;
     }
 
-    if (hasContent) {
-      // Position dot: for diamonds use right vertex offset, for others use top-right corner
-      const dotCx = n.type === "decision" ? cx + n.width/2 + 10 : cx + n.width/2 - 12;
-      const dotCy = n.type === "decision" ? cy - 10 : cy - n.height/2 + 12;
-      svgContent += `<circle class="status-dot" cx="${dotCx}" cy="${dotCy}" r="6" fill="var(--status-not-started)" data-status-dot="${nid}"/>`;
+    // Status dot only on process nodes (blue rectangles) — looks clean at top-right corner
+    if (hasContent && n.type === "process") {
+      svgContent += `<circle class="status-dot" cx="${cx + n.width/2 - 12}" cy="${cy - n.height/2 + 12}" r="6" fill="var(--status-not-started)" data-status-dot="${nid}"/>`;
     }
 
     svgContent += `</g>`;
@@ -837,11 +887,11 @@ function renderStatusDots() {
 }
 
 function updateProgress() {
-  const done = CONTENT_NODES.filter(n => ["implemented","verified"].includes(state.statuses[n] || "")).length;
-  document.getElementById("progressText").textContent = `${done}/${CONTENT_NODES.length}`;
-  document.getElementById("progressBar").style.width = `${(done / CONTENT_NODES.length * 100)}%`;
+  const done = PROCESS_CONTENT_NODES.filter(n => ["implemented","verified"].includes(state.statuses[n] || "")).length;
+  document.getElementById("progressText").textContent = `${done}/${PROCESS_CONTENT_NODES.length}`;
+  document.getElementById("progressBar").style.width = `${(done / PROCESS_CONTENT_NODES.length * 100)}%`;
   const list = document.getElementById("progressList");
-  list.innerHTML = CONTENT_NODES.map(nid => {
+  list.innerHTML = PROCESS_CONTENT_NODES.map(nid => {
     const st = state.statuses[nid] || "not_started";
     return `<div class="progress-item"><div class="legend-dot" style="background:${STATUS_COLORS[st]}"></div><span>${CONTENTS[nid]?.title || nid}</span><span style="margin-left:auto;color:var(--text-secondary)">${STATUS_LABELS[st]}</span></div>`;
   }).join("");
