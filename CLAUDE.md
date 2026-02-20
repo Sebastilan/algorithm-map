@@ -41,6 +41,7 @@ algorithm-map/
 | Schema 字段变更 | `schema/algorithm-map.schema.json` + `examples/bpc-phase1.json` + `docs/vision.md`（如涉及） |
 | 新增示例地图 | `examples/` + `README.md` 示例列表 |
 | 渲染器功能变更 | `renderer/` + `TODO.md` |
+| 协议/规范变更 | `prompts/` 对应文件 + `TODO.md` |
 | 任务完成/新增 | `TODO.md` |
 | 踩坑/重要决策 | 本文件「经验沉淀」段 |
 
