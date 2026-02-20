@@ -1,15 +1,19 @@
 # Algorithm Map — TODO
 
-## Phase 0: Schema 定义 ← 当前阶段
+## Phase 0: Schema 定义 ✅
 
 - [x] 定义 JSON Schema（三层：结构/内容/状态）
 - [x] 创建 BPC 示例 JSON（符合 Schema）
-- [ ] 编写生成规范 prompt ← 当前步骤
+- [ ] 编写生成规范 prompt（`prompts/generate-map.md`）← 待做
 
-## Phase 1: 渲染器
+## Phase 1: 渲染器 ← 当前阶段
 
-- [ ] 改造现有 BPC HTML 原型为通用渲染器（读外部 JSON）
-- [ ] 接入 cc-commander feedback bridge 批注机制
+- [x] 改造现有 BPC HTML 原型为通用渲染器（读外部 JSON）
+- [x] dagre 自动布局 + 形状裁剪（菱形/椭圆）+ 路径简化
+- [x] 六维面板（overview/how/verify/code/refs/pitfalls）+ Markdown/KaTeX 渲染
+- [x] 批注模式（流程图层 + 面板层，支持 resolve）
+- [x] 状态追踪（process 节点状态点 + 验证结果只读展示 + 进度条）
+- [ ] 反馈机制：点击「提交反馈」→ 生成精简 MD → 写入文件（HTTP POST）← 下一步
 - [ ] 手机端适配测试
 
 ## Phase 2: CC-Commander 集成

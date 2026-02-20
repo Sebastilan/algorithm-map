@@ -11,7 +11,7 @@
 
 ## 当前阶段
 
-Phase 0: Schema 定义 ← 当前
+Phase 1: 渲染器（渲染器主体已完成，剩余 feedback bridge + 手机端适配 + 生成规范 prompt）
 
 ## 项目结构
 
@@ -30,8 +30,9 @@ algorithm-map/
 |------|------|------|
 | 数据格式 | JSON | AI 可直接生成和解析，人通过 HTML 渲染阅读 |
 | 三层分离 | 结构/内容/状态 | 结构定型后少改；内容在规划阶段填充；状态在执行阶段更新 |
-| 渲染方式 | 单 HTML 文件 | 零依赖，手机浏览器直接打开，便于通过 cc-commander 推送 |
-| 批注机制 | 复用 cc-commander feedback bridge | 已有成熟方案，不重复造轮 |
+| 渲染方式 | 单 HTML 文件 | 零依赖，需 HTTP 服务器（file:// 无法 fetch JSON） |
+| 批注机制 | 渲染器内置 → 导出反馈 MD | 点击「提交反馈」→ 生成精简 MD → AI 直接读取 |
+| 架构模式 | 静态查看器 + JSON 数据 | 渲染器不进对话上下文，AI 只生成 JSON + 读反馈 MD，保持上下文精简 |
 
 ## 文档联动
 
@@ -55,4 +56,12 @@ algorithm-map/
 
 ## 经验沉淀
 
-（随项目推进记录）
+### 渲染器开发（2026-02-20）
+- **file:// 不能 fetch**：浏览器 CORS 限制，必须通过 HTTP 服务器访问（`python -m http.server 8765`）
+- **KaTeX CDN 版本**：0.16.11 不存在于 cdnjs，用 0.16.9
+- **dagre 布局后处理**：dagre 按矩形包围盒连线，菱形/椭圆需要 clipToShape() 后处理裁剪到真实边界
+- **路径简化**：dagre 产生近共线中间点导致微弯，simplifyPath() 用垂直距离阈值 5px 消除
+- **批注模式命中区域**：不能直接加粗可见边线（stroke-width:12 导致箭头变形），正确做法是加一层透明 .edge-hit 覆盖层
+- **验证项只读**：checkbox 改为 ⬜/✅ 图标展示，验证结果由自动化流程写入 state，不允许手动勾选
+- **状态点只在 process 节点显示**：decision/terminal/auxiliary 节点不需要执行状态标识
+- **静态查看器模式**：渲染器预部署不进上下文，AI 只生成 JSON + 读反馈 MD → 上下文窗口精简（已记录为全局知识）

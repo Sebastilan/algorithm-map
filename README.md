@@ -19,6 +19,16 @@
 
 把复杂算法拆成环节，为每个环节定义三层验证（前置条件 → 核心验证 → 后置条件）。所有验证通过 = 整条链路可信。任何验证失败 = 精确定位到问题环节。
 
+## 架构
+
+```
+AI 生成 JSON ──→ 静态渲染器（HTML）──→ 用户审阅批注 ──→ 反馈 MD ──→ AI 读取
+     ↑                不进对话上下文              ↓
+     └──────────── 修改 JSON 重新渲染 ←──────────┘
+```
+
+**关键设计**：渲染器是预部署的静态 HTML，永远不进入 AI 对话上下文。AI 只生成紧凑的 JSON 数据，读取精简的反馈 MD，保持上下文窗口精简。
+
 ## 三个阶段
 
 1. **施工蓝图（Plan）** — AI 生成地图 JSON，人在手机/平板上审阅批注
@@ -28,17 +38,21 @@
 ## 快速开始
 
 ```bash
-# 查看 BPC 示例
-# 用浏览器打开渲染器，加载示例 JSON
-open renderer/render.html
+# 启动本地 HTTP 服务器（file:// 无法 fetch JSON）
+cd algorithm-map
+python -m http.server 8765
+
+# 浏览器打开渲染器
+# http://localhost:8765/renderer/render.html
+# 点击「加载 JSON」选择 examples/bpc-phase1.json
 ```
 
 ## 项目结构
 
 ```
 schema/              JSON Schema 定义
-renderer/            JSON → HTML 渲染器
-prompts/             AI 生成地图的 prompt 规范
+renderer/            JSON → HTML 渲染器（单文件，dagre 布局 + Markdown/KaTeX）
+prompts/             AI 生成地图的 prompt 规范（待编写）
 examples/            示例地图 JSON
 docs/                愿景文档
 ```
