@@ -1,0 +1,24 @@
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node (if later needed)
+node_modules/
+dist/
+
+# Local overrides
+CLAUDE.local.md
+
+# Archive
+_archive/
