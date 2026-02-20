@@ -19,6 +19,7 @@ dist/
 
 # Local overrides
 CLAUDE.local.md
+.claude/
 
 # Feedback (temp communication files)
 *.feedback.md

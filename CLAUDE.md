@@ -84,3 +84,10 @@ CC 技能（项目外）：
 - **技能引用而非复制规范**：`/map` 技能的 references/ 包含完整规范副本，确保技能自包含，不依赖仓库路径变动
 - **地图 JSON 放目标项目内**：不放 algorithm-map 仓库里，而是放在使用地图的目标项目根目录，确保项目自包含
 - **localStorage vs JSON state 权威源**：渲染器 localStorage 只保存用户本地批注；statuses 和 verifyChecks 以 JSON 为权威源（Build 阶段 AI 直接写 JSON）。之前 localStorage 会完全覆盖 JSON state 导致刷新后看不到 AI 更新的状态
+
+### 独立审查机制设计（2026-02-20）
+- **Builder/Auditor 分离**：同一 AI 写代码又自测存在"狐狸看鸡窝"问题。解决方案：Builder 实现代码后，通过 CC Task 工具启动独立 Audit 子 Agent 审查
+- **三层审查顺序**：审指标（verify 标准本身是否完整）→ 审数据（用 checkpoint 跑测试）→ 审代码（读源码查投机取巧）。指标层最先，因为标准有问题则后续审查无意义
+- **Checkpoint 是反作弊核心**：每个节点输出序列化到 `_checkpoints/<node_id>.json`，下游节点的输入来自上游 checkpoint，Builder 无法篡改上游数据。成本几乎为零，价值极高
+- **盲测不做**：为复杂算法生成有意义的测试数据本身极难，投入产出比不合理。checkpoint + 代码审查已足够
+- **链式信任检查**：Auditor 不只看当前节点，还验证上游 post 是否覆盖本节点 pre、本节点 post 是否支撑下游 pre。防止信任链断裂
