@@ -33,7 +33,11 @@
 - [x] ALNS-CVRP 测试 `/map plan`，发现"5步散文→JSON"模式的系统性问题
 - [x] 重构 `generate-map.md`：5步连续 → 两阶段增量构建（Phase A 骨架 + Phase B 验证）
 - [x] 新增算法类型分类验证指南（确定性/随机/数值迭代/数据处理）
-- [x] 同步更新 `/map` 技能副本（references/generate.md + SKILL.md）
+- [x] 新增 `/map upgrade` 子命令（升级已有地图节点/新增节点）
+- [x] 重构 `execute-map.md`：benchmark-only → 逐节点分层验证（L1→L2→L3）
+- [x] 新增三方制衡：Builder 自检数值 + Reviewer（Sonnet）审代码逻辑
+- [x] Plan 变更规则：内容层 Builder 可调，结构层走 `/map upgrade`
+- [x] 同步更新 `/map` 技能副本（references/ + SKILL.md）
 
 ## Phase 2: CC-Commander 集成 ← 下一阶段
 

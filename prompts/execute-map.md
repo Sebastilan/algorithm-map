@@ -1,47 +1,126 @@
 # 算法地图执行规范
 
-CC 按算法地图自动实现代码的协议。用户输入 `/map build`，CC 读取本规范后自动执行到底。
+CC 按算法地图逐节点实现代码的协议。用户输入 `/map build`，CC 读取本规范后自动执行。
 
 ## 核心原则
 
-1. **Benchmark 驱动**：用已知最优值的标准算例验证，不手动设计测试实例
-2. **链式数据流**：上游节点的输出就是下游节点的输入，checkpoint 自动形成测试链
-3. **一条断言胜过百条表面检查**：`solver(benchmark) == known_optimal` 通过即全部正确
-4. **全自动**：新 CC 窗口读 JSON 即可断点续做，无需人工引导
+1. **逐节点验证**：实现一个、验证一个、确认一个，bug 不过夜
+2. **三方制衡**：Planner 定标准（verify.core）、Builder 写代码跑数值、Reviewer 审代码逻辑
+3. **链式数据流**：上游 checkpoint 就是下游输入，自动形成测试链
+4. **断点续做**：新 CC 窗口读 JSON 即可从上次断点继续，无需人工引导
 
 ## 自动化流程
 
 ```python
 def map_build(project_dir):
-    # 1. 上下文恢复
     map_json = read("algorithm-map.json")
-    nodes = scan_state(map_json)  # {verified, implemented, not_started}
-    benchmark = map_json["meta"]["benchmark"]  # {file, known_optimal}
+    nodes = scan_state(map_json)
 
     if all_verified(nodes):
         print("Build 已完成")
         return
 
-    # 2. 实现所有未完成的 process 节点
     for node in topological_sort(process_nodes):
         if node.status == "verified":
             continue
-        implement_node(node)  # 读 contents → 写代码 → 保存 checkpoint
-        set_status(node, "implemented")
 
-    # 3. 端到端验证
-    result = run_pipeline(benchmark["file"])
-    if result == benchmark["known_optimal"]:
-        for node in process_nodes:
-            set_status(node, "verified")
-        print(f"PASS — {benchmark['file']}: {result}")
-    else:
-        diagnose(benchmark)  # checkpoint 链定位故障节点
+        # --- 单节点循环 ---
+        implement(node)                    # 读 contents → 写代码 → 存 checkpoint
+        self_test(node)                    # Builder 跑 verify.core 中的 L1
+        review_result = code_review(node)  # Reviewer 子 Agent（Sonnet）审代码
+        if review_result.flagged:
+            fix_and_retry(node)            # 改代码 → 重新自检 → 重新审查
+        set_status(node, "verified")
+
+        # region 完成 → L2
+        if region_complete(node):
+            run_L2(region)
+
+    # 全部完成 → L3
+    run_L3(benchmark)
 ```
+
+## 单节点循环
+
+### 步骤 1：实现
+
+```
+1. 读 contents[node_id].overview  → 理解做什么
+2. 读 contents[node_id].how       → 理解怎么做
+3. 读上游 checkpoint               → 知道输入数据长什么样
+4. 写代码（按 code.files 路径）
+5. 保存 checkpoint：
+   _checkpoints/<node_id>.json = {
+     "node_id": "...",
+     "input_from": "上游 node_id",
+     "output": { 本节点的输出数据 }
+   }
+6. set_status(node_id, "implemented")
+```
+
+**Checkpoint 是数据流的快照**，不是测试数据。它的作用：
+- 下游节点实现时可以直接读取上游输出，理解接口
+- 验证失败时，沿 checkpoint 链定位故障节点
+- 新对话恢复时，不必重跑已完成的节点
+
+### 步骤 2：自检（Builder 跑 L1）
+
+Builder 自己执行 verify.core 中 `level: "L1"` 的验证项。这些验证项是 Plan 阶段定义的。
+
+- **通过** → 继续步骤 3（代码审查）
+- **失败** → 改代码，重跑，直到通过
+- **认为期望值有误** → 标记争议（`"dispute": "理由"`），不改期望值，继续往下走
+
+### 步骤 3：代码审查（Reviewer 子 Agent）
+
+L1 自检通过后，启动 Reviewer 子 Agent。**使用 Sonnet 模型，审查模板固定不可改**。
+
+Builder 只填三个变量（`{node_id}`、`{how}`、`{code_files}`），审查逻辑锁死：
+
+```
+Task(subagent_type="general-purpose", model="sonnet", prompt="""
+你是代码审查员。只读代码，不跑测试，不改代码。
+
+## 审查对象
+节点：{node_id}
+算法规格（how）：
+{contents[node_id].how}
+
+实现文件：{code_files}
+
+## 检查清单（逐项回答 ✓ 或 ✗ + 证据）
+1. 算法结构是否匹配 how 描述的步骤
+2. 核心计算是真实计算还是硬编码/stub
+3. 有无针对特定输入的 if 特判
+4. 有无被跳过/注释掉的关键步骤
+5. 数据来源是上游 checkpoint 还是凭空构造
+
+## 输出格式
+CLEAN — 无问题
+或
+FLAG — [问题编号] 具体描述 + 代码位置
+""")
+```
+
+- **CLEAN** → 节点标记 verified
+- **FLAG** → Builder 查看具体问题 → 修复代码 → 重新走自检 + 审查
+
+## 分层验证
+
+Plan 阶段设计了三层验证（verify.core 中的 level 字段），Build 阶段按节奏执行：
+
+| 层级 | 触发时机 | 内容 |
+|------|---------|------|
+| **L1** | 每个节点实现后 | 单节点功能验证（Builder 自检 + Reviewer 审代码） |
+| **L2** | region 所有节点 verified 后 | 集成验证（如 CG 循环 LP 值 == Gurobi 直接求解值） |
+| **L3** | 全部节点 verified 后 | 端到端 benchmark 验证 |
+
+L2 验证项在 region 最后一个 process 节点的 verify.core（`level: "L2"`）中。
+L3 验证项在全图最后一个 process 节点的 verify.core（`level: "L3"`）中。
 
 ## Benchmark 算例
 
-地图 JSON 的 `meta.benchmark` 字段定义验证用算例：
+地图 JSON 的 `meta.benchmark` 字段定义 L3 验证用算例：
 
 ```json
 {
@@ -62,101 +141,55 @@ def map_build(project_dir):
 
 **没有 benchmark 时**：要求用户提供，或在第一个节点实现后搜索合适的标准算例。
 
-## 单节点实现
+## 诊断流程（验证失败时）
 
-对每个 process 节点，按顺序执行：
+### L1 失败
 
-```
-1. 读 contents[node_id].overview  → 理解做什么
-2. 读 contents[node_id].how       → 理解怎么做
-3. 读上游 checkpoint               → 知道输入数据长什么样
-4. 写代码（按 code.files 路径）
-5. 保存 checkpoint：
-   _checkpoints/<node_id>.json = {
-     "node_id": "...",
-     "input_from": "上游 node_id",
-     "output": { 本节点的输出数据 }
-   }
-6. set_status(node_id, "implemented")
-```
+直接在当前节点修复，不涉及其他节点。
 
-**Checkpoint 是数据流的快照**，不是测试数据。它的作用：
-- 下游节点实现时可以直接读取上游输出，理解接口
-- 端到端验证失败时，沿 checkpoint 链定位故障节点
-- 新对话恢复时，不必重跑已完成的节点
+### L2 失败
 
-## 并行策略
-
-### 节点并行（独立节点同时构建）
-```
-1. 拓扑排序 → 按依赖层级分组
-2. 同一层级的节点无依赖关系 → 用 Task 工具启动子 Agent 并行实现
-3. 每个子 Agent 负责一个节点：读 contents → 写代码 → 保存 checkpoint
-4. 所有节点实现完毕后统一做端到端验证
-```
-
-### 管线并行（实现与验证重叠）
-```
-当前节点 implemented → 立刻启动端到端测试（可能部分通过）
-同时开始实现下一个节点
-端到端测试的反馈可以及时纠正正在实现的节点
-```
-
-### 子 Agent 使用模板
-```
-Task(subagent_type="general-purpose", prompt="""
-你负责实现算法地图节点 {node_id}。
-
-项目目录：{project_dir}
-上游 checkpoint：{upstream_checkpoint_path}
-
-节点内容：
-{contents[node_id].overview}
-{contents[node_id].how}
-
-请：
-1. 创建 {code.files} 中列出的文件
-2. 实现核心逻辑
-3. 保存 checkpoint 到 _checkpoints/{node_id}.json
-""")
-```
-
-## 端到端验证
-
-所有 process 节点 implemented 后执行：
-
-```python
-def verify_end_to_end(benchmark):
-    result = solve(benchmark["file"])
-
-    if result == benchmark["known_optimal"]:
-        return "PASS"
-
-    # FAIL → 诊断
-    return diagnose(benchmark)
-```
-
-**验证通过**：所有 process 节点标记 `verified`，更新 JSON。
-
-**验证失败**：进入诊断流程。
-
-## 诊断流程（端到端失败时）
-
-沿 checkpoint 链逐步定位故障节点：
+沿 region 内的 checkpoint 链逐步检查：
 
 ```
-1. 从第一个节点开始，依次检查 checkpoint 数据的合理性：
-   - 节点 01 的 checkpoint：距离矩阵对称？需求 > 0 且 ≤ Q？
-   - 节点 02 的 checkpoint：LP 有可行解？obj > 0？
-   - 节点 03 的 checkpoint：对偶值非负？维度正确？
-   - 节点 04 的 checkpoint：返回列容量合法？RC < 0？
-   - ...
-2. 找到第一个不合理的 checkpoint → 对应节点有 bug
-3. 修复该节点 → 重跑端到端验证
-4. 重复直到 PASS
+1. 依次检查 region 内各节点的 checkpoint 数据合理性
+2. 用 verify.pre/post 条件逐节点验证
+3. 找到第一个不合理的 checkpoint → 对应节点有 bug
+4. 回退该节点状态 → 修复 → 重跑 L1 + 审查 → 重跑 L2
 ```
 
-关键：**诊断用的检查项就是 verify.pre/post 里的条件**——这些条件终于发挥了它的真正作用：不是日常验证，而是故障定位。
+### L3 失败
+
+沿全局 checkpoint 链逐 region 定位。先找到故障 region，再在 region 内定位故障节点。
+
+## Plan 变更规则
+
+Build 过程中可能发现 Plan 的内容需要调整：
+
+| 变更类型 | 处理方式 |
+|---------|---------|
+| **how 细节调整** | Builder 直接更新 JSON 的 contents.how |
+| **verify 期望值有误** | 标记争议，不擅自修改，继续往下走 |
+| **节点需要拆分/新增** | 暂停 Build，走 `/map upgrade` |
+| **流程结构变更** | 暂停 Build，走 `/map upgrade` |
+
+原则：**内容层 Builder 可调，结构层必须走 upgrade**。
+
+## 并行策略（可选）
+
+当地图中存在同一拓扑层级的独立节点时，可以用 Task 子 Agent 并行实现。
+
+**前提**：
+- 共同上游节点已 verified
+- 项目基础设施已建立（数据结构、工具函数）
+- 两个节点不修改同一文件
+
+**做法**：
+- 用 Task 工具为每个独立节点启动子 Agent
+- 每个子 Agent 完成实现 + 自检
+- 所有子 Agent 完成后，主 Agent 逐个启动 Reviewer
+
+**默认串行，并行是可选加速项。** 大多数算法图的节点有线性依赖，并行机会不多。
 
 ## 状态管理
 
@@ -165,8 +198,6 @@ def verify_end_to_end(benchmark):
 ```
 not_started → implemented → verified
 ```
-
-简化为三个状态。中间的 `discussing` / `theory_ok` 在自动化流程中没有意义。
 
 ### JSON 更新
 
@@ -178,11 +209,11 @@ from map_utils import set_status, set_verified, save_checkpoint
 # 实现完成
 set_status("04_pricing", "implemented")
 
-# 端到端验证通过后
+# L1 自检 + 审查通过后
 set_verified("04_pricing",
-    pre=[True, True, True],
-    core=[True],  # 端到端验证 = 一条 core
-    post=[True, True, True])
+    pre=[True, True],
+    core=[True, True],
+    post=[True, True])
 ```
 
 ### map_utils.py 模板
@@ -231,7 +262,7 @@ def save_checkpoint(node_id, output_data):
 1. 读 algorithm-map.json
 2. 扫描 state.nodes：
    - 全部 verified → "Build 已完成"
-   - 有 implemented 但未 verified → 跑端到端验证
+   - 有 implemented 但未 verified → 跑 L1 自检 + Reviewer 审查
    - 有 not_started → 继续实现
 3. 读 _checkpoints/ → 了解已完成节点的输出数据
 4. 继续流程（无需人工引导）
@@ -249,11 +280,14 @@ def save_checkpoint(node_id, output_data):
 
 ```
 /map build 自动流程：
-  读 JSON → 找 benchmark → 拓扑序实现节点 → 端到端验证 → 更新状态
+  读 JSON → 拓扑序 → 逐节点（实现 → L1 自检 → Reviewer 审代码 → verified）
+  → region 完成跑 L2 → 全部完成跑 L3
 
-单节点：读 overview/how → 读上游 checkpoint → 写代码 → 存 checkpoint
+单节点：读 how → 读 checkpoint → 写代码 → 自检 L1 → Reviewer（Sonnet）→ verified
 
-验证：solve(benchmark) == known_optimal
+三方制衡：Planner 定标准 / Builder 写代码跑数值 / Reviewer 审代码逻辑
 
-失败：沿 checkpoint 链逐节点检查 → 找到故障节点 → 修复 → 重跑
+诊断：沿 checkpoint 链定位故障节点 → 修复 → 重验
+
+Plan 变更：内容层直接改，结构层走 /map upgrade
 ```

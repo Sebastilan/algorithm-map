@@ -101,6 +101,13 @@ CC 技能（项目外）：
 - **算法类型决定验证策略**：地图适用于所有算法，但验证方式因类型而异。确定性精确算法用交叉求解器，随机/启发式用固定种子+统计性质+多次运行，数值迭代用收敛速度+精度容差。关键洞察：L1 可统一——固定种子后任何随机算法都变成确定性算法
 - **CC 特性决定协议设计**：CC 擅长增量构建、精确读文件，不擅长长独白自洽和自检大 JSON。协议应顺着 CC 的特性走，不让 CC 模仿人类写文档的方式
 
+### 执行规范重构——从 benchmark-only 到三方制衡（2026-02-20）
+- **Plan 设计的 L1/L2/L3 验证必须在 Build 中用起来**：旧 execute-map.md 只做端到端 benchmark 比对，Plan 精心设计的逐节点 verify.core 沦为摆设。改为逐节点 L1 → 逐 region L2 → 最后 L3
+- **CC 自检数值可信，但代码可能走捷径**：CC 不会造假数值，但面对复杂 bug 时倾向修改测试而非修复代码。Builder 跑数值自检 + Reviewer 审代码逻辑，两步互补
+- **Reviewer 模板必须预设在规范中**：如果让 Builder 自己生成 Reviewer 的 prompt，等于自己给自己出考题。审查清单锁死在 execute-map.md 里，Builder 只填变量
+- **Reviewer 用 Sonnet**：代码审查是模式匹配任务（对照 how 检查实现），不需要深度推理，Sonnet 又快又够用
+- **内容层变更允许，结构层走 upgrade**：Build 中发现 how 不对可以直接改 JSON，但节点拆分/新增必须走 `/map upgrade` 做影响分析
+
 ### BPC 实战验证（2026-02-20）
 - **map_utils.py 降低 JSON 操作摩擦**：频繁手写 json.load/save/update 代码极耗时。提供 set_status / set_verified / save_checkpoint 三个函数，单行调用完成状态更新
 - **B&B 列池 bug 是最大陷阱**：子节点必须继承父节点 CG 发现的所有列。否则分支约束形同虚设，导致无限循环。路径元组（而非索引）是稳定的列标识符
