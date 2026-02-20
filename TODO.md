@@ -13,7 +13,7 @@
 - [x] 六维面板（overview/how/verify/code/refs/pitfalls）+ Markdown/KaTeX 渲染
 - [x] 批注模式（流程图层 + 面板层，支持 resolve）
 - [x] 状态追踪（process 节点状态点 + 验证结果只读展示 + 进度条）
-- [ ] 反馈机制：点击「提交反馈」→ 生成精简 MD → 写入文件（HTTP POST）← 下一步
+- [x] 反馈机制：点击「提交反馈」→ 生成精简 MD → 写入文件（HTTP POST）
 - [ ] 手机端适配测试
 
 ## Phase 2: CC-Commander 集成

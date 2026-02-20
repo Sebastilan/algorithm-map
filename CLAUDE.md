@@ -65,3 +65,4 @@ algorithm-map/
 - **验证项只读**：checkbox 改为 ⬜/✅ 图标展示，验证结果由自动化流程写入 state，不允许手动勾选
 - **状态点只在 process 节点显示**：decision/terminal/auxiliary 节点不需要执行状态标识
 - **静态查看器模式**：渲染器预部署不进上下文，AI 只生成 JSON + 读反馈 MD → 上下文窗口精简（已记录为全局知识）
+- **Feedback Bridge**：`server.py` 替代 `python -m http.server`，新增 POST /api/feedback 写 `.feedback.md`；渲染器 `submitFeedback()` POST 失败时 fallback 到剪贴板复制，兼容纯静态服务器

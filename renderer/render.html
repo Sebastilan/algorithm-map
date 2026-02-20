@@ -462,7 +462,7 @@ body.anno-mode-on .edge-hit { pointer-events: stroke; cursor: crosshair; }
     <div class="panel-status">
       <span>状态：</span>
       <select id="panelStatusSelect"></select>
-      <button class="header-btn-export" onclick="exportAnnotations()" style="margin-left:auto">导出批注</button>
+      <button class="header-btn-export" onclick="submitFeedback()" style="margin-left:auto">提交反馈</button>
     </div>
     <div class="tab-bar" id="tabBar">
       <button class="tab-btn active" data-tab="overview">概述</button>
@@ -1188,32 +1188,102 @@ document.querySelector(".tab-content-area").addEventListener("click", e => {
   showToast("批注已删除");
 });
 
-// Export
-function exportAnnotations() {
-  if (!state.annotations && !state.flowAnnotations) { showToast("没有批注"); return; }
-  const tabNames = {overview:"概述", how:"How", code:"Code", verify:"Verify", refs:"参考", pitfalls:"踩坑"};
-  const lines = [];
+// Feedback export
+function buildFeedbackMarkdown() {
+  const tabNames = {overview:"Overview", how:"How", code:"Code", verify:"Verify", refs:"Refs", pitfalls:"Pitfalls"};
+  const params = new URLSearchParams(location.search);
+  const src = params.get("src") || "../examples/bpc-phase1.json";
+  const title = mapData?.meta?.title || "Algorithm Map";
 
-  // Flow annotations
-  for (const [key, annos] of Object.entries(state.flowAnnotations || {})) {
-    for (const anno of annos) {
-      lines.push(`[流程图] [${key}] ${anno.comment}`);
+  // Count total annotations
+  let count = 0;
+  for (const annos of Object.values(state.flowAnnotations || {})) count += annos.length;
+  for (const nodeAnnos of Object.values(state.annotations || {})) {
+    for (const annos of Object.values(nodeAnnos)) count += annos.length;
+  }
+  if (count === 0) return null;
+
+  const lines = [];
+  lines.push(`# Feedback: ${title}`);
+  lines.push(`- Date: ${new Date().toISOString().replace(/\.\d+Z$/, "")}`);
+  lines.push(`- Source: ${src}`);
+  lines.push(`- Annotations: ${count}`);
+  lines.push("");
+
+  // Flow annotations section
+  const flowEntries = Object.entries(state.flowAnnotations || {});
+  if (flowEntries.length > 0) {
+    lines.push("## Flow");
+    for (const [key, annos] of flowEntries) {
+      for (const anno of annos) {
+        lines.push(`- [${key}] ${anno.comment}`);
+      }
     }
+    lines.push("");
   }
 
-  // Node annotations
+  // Node annotations — grouped by node
   for (const nodeId of CONTENT_NODES) {
     const nodeAnnos = state.annotations?.[nodeId];
     if (!nodeAnnos) continue;
+    const nodeTitle = CONTENTS[nodeId]?.title || nodeId;
+    const nodeGraphData = GRAPH_NODES.find(n => n.id === nodeId);
+    const nodeLabel = nodeGraphData?.label || nodeTitle;
+    lines.push(`## ${nodeLabel}`);
     for (const [tab, annos] of Object.entries(nodeAnnos)) {
       for (const anno of annos) {
-        lines.push(`[${CONTENTS[nodeId]?.title || nodeId}] [${tabNames[tab]||tab}] "${anno.text}" → ${anno.comment}`);
+        const anchor = anno.text ? anno.text.substring(0, 60) : "";
+        if (anchor) {
+          lines.push(`- [${tabNames[tab] || tab}] "${anchor}"${anno.text.length > 60 ? "..." : ""} → ${anno.comment}`);
+        } else {
+          lines.push(`- [${tabNames[tab] || tab}] ${anno.comment}`);
+        }
       }
     }
+    lines.push("");
   }
 
-  if (lines.length === 0) { showToast("没有批注"); return; }
-  navigator.clipboard.writeText(lines.join("\n")).then(() => showToast(`已复制 ${lines.length} 条批注`)).catch(() => prompt("请手动复制：", lines.join("\n")));
+  return lines.join("\n").trim() + "\n";
+}
+
+function getMapPath() {
+  const params = new URLSearchParams(location.search);
+  const src = params.get("src") || "../examples/bpc-phase1.json";
+  try {
+    return new URL(src, location.href).pathname;
+  } catch {
+    return src;
+  }
+}
+
+async function submitFeedback() {
+  const md = buildFeedbackMarkdown();
+  if (!md) { showToast("没有批注"); return; }
+
+  const mapPath = getMapPath();
+  const title = mapData?.meta?.title || "Algorithm Map";
+
+  try {
+    const resp = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mapPath, title, markdown: md }),
+    });
+    const result = await resp.json();
+    if (result.ok) {
+      showToast(`反馈已写入 ${result.path}`);
+      return;
+    }
+    throw new Error(result.error || "Server error");
+  } catch (err) {
+    // Fallback: copy to clipboard (works with plain static server)
+    try {
+      await navigator.clipboard.writeText(md);
+      showToast("服务器不可用，已复制到剪贴板");
+    } catch {
+      prompt("请手动复制反馈 Markdown：", md);
+    }
+  }
 }
 
 // Toast
