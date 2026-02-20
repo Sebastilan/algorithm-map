@@ -673,14 +673,17 @@ function initState() {
     }
   }
 
-  // Overlay localStorage (user's local edits take precedence)
+  // Merge localStorage (local annotations) with JSON (authoritative statuses)
+  // JSON state is the authority for statuses and verifyChecks (written by AI during Build).
+  // localStorage preserves user's local annotations that haven't been exported yet.
   try {
     const raw = localStorage.getItem(stateKey());
     if (raw) {
       const local = JSON.parse(raw);
       if (local.version === STATE_VERSION) {
-        state = local;
-        return;
+        // Keep local annotations (user edits), but statuses/verifyChecks come from JSON
+        if (local.annotations) base.annotations = local.annotations;
+        if (local.flowAnnotations) base.flowAnnotations = local.flowAnnotations;
       }
     }
   } catch {}

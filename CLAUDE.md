@@ -83,3 +83,4 @@ CC 技能（项目外）：
 - **执行粒度是单节点**：每个 process 节点是一个完整的理解→实现→验证→状态更新循环，也是天然的对话断点
 - **技能引用而非复制规范**：`/map` 技能的 references/ 包含完整规范副本，确保技能自包含，不依赖仓库路径变动
 - **地图 JSON 放目标项目内**：不放 algorithm-map 仓库里，而是放在使用地图的目标项目根目录，确保项目自包含
+- **localStorage vs JSON state 权威源**：渲染器 localStorage 只保存用户本地批注；statuses 和 verifyChecks 以 JSON 为权威源（Build 阶段 AI 直接写 JSON）。之前 localStorage 会完全覆盖 JSON state 导致刷新后看不到 AI 更新的状态
