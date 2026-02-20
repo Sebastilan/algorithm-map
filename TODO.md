@@ -15,7 +15,7 @@
 - [x] 反馈机制：点击「提交反馈」→ 生成精简 MD → 写入文件（HTTP POST）
 - [ ] 手机端适配测试（降优先级，能用就行）
 
-## Phase 1.5: 协议层 ← 当前阶段
+## Phase 1.5: 协议层 ✅
 
 核心：让 CC 能生成和执行算法地图，而不只是渲染它。
 
@@ -23,8 +23,12 @@
 - [x] 执行规范 prompt（`prompts/execute-map.md`）
 - [x] 包装为 CC 技能 `/map`（plan / build / view）
 - [x] 更新 `docs/vision.md`（补充已实现部分）
+- [x] BPC 实战验证：`/map build` 完成全部 9 节点 + 4 轮审计 + 159 测试
+  - 项目：`CCA/bpc-solver/`
+  - 发现并修复 B&B 列池 bug（子节点丢失父节点 CG 列）
+  - 测试实例设计：T3（integer at root）+ T4（forcing branching）
 
-## Phase 2: CC-Commander 集成
+## Phase 2: CC-Commander 集成 ← 下一阶段
 
 - [ ] PM 路由：识别复杂算法任务
 - [ ] Terminal 新增 map_planning 状态

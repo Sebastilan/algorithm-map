@@ -199,7 +199,12 @@ $$...$$
     "phase": "Phase 1: ...",
     "project": "项目路径（可选）",
     "created": "YYYY-MM-DD",
-    "updated": "YYYY-MM-DD"
+    "updated": "YYYY-MM-DD",
+    "benchmark": {
+      "file": "data/instance.vrp",
+      "known_optimal": 247,
+      "source": "CVRPLIB / TSPLIB / 文献"
+    }
   },
   "graph": {
     "nodes": [
