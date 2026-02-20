@@ -7,11 +7,13 @@
 - **协议**：JSON Schema 定义算法地图的标准数据格式
 - **渲染器**：JSON → 可交互 HTML（支持批注、状态追踪）
 - **生成规范**：CC 生成合规 JSON 的 prompt 模板
+- **执行规范**：CC 按图逐节点实现代码的执行协议
+- **CC 技能**：`/map` 技能（plan / build / view 三个子命令）
 - **示例**：BPC（Branch-Price-Cut）作为参考实现
 
 ## 当前阶段
 
-Phase 1: 渲染器（渲染器主体已完成，剩余 feedback bridge + 手机端适配 + 生成规范 prompt）
+Phase 1.5 完成。渲染器 + 反馈桥 + 生成/执行规范 + `/map` 技能全部就绪。下一步：Phase 2（CC Commander 集成）或实际项目验证。
 
 ## 项目结构
 
@@ -19,9 +21,17 @@ Phase 1: 渲染器（渲染器主体已完成，剩余 feedback bridge + 手机�
 algorithm-map/
 ├── schema/              # JSON Schema 定义
 ├── renderer/            # JSON → HTML 渲染器
-├── prompts/             # CC 生成地图的 prompt 规范
+├── prompts/             # CC 生成/执行地图的 prompt 规范
+│   ├── generate-map.md  # Plan 阶段：生成地图 JSON
+│   └── execute-map.md   # Build 阶段：逐节点实现 + 验证
 ├── examples/            # 示例地图 JSON
-└── docs/                # 愿景文档、设计说明
+├── docs/                # 愿景文档、设计说明
+└── server.py            # 开发服务器（静态文件 + POST /api/feedback）
+
+CC 技能（项目外）：
+~/.claude/skills/map/
+├── SKILL.md             # 技能主文件（/map plan|build|view）
+└── references/          # 引用生成/执行规范
 ```
 
 ## 关键设计决策
@@ -67,3 +77,9 @@ algorithm-map/
 - **状态点只在 process 节点显示**：decision/terminal/auxiliary 节点不需要执行状态标识
 - **静态查看器模式**：渲染器预部署不进上下文，AI 只生成 JSON + 读反馈 MD → 上下文窗口精简（已记录为全局知识）
 - **Feedback Bridge**：`server.py` 替代 `python -m http.server`，新增 POST /api/feedback 写 `.feedback.md`；渲染器 `submitFeedback()` POST 失败时 fallback 到剪贴板复制，兼容纯静态服务器
+
+### 协议层设计（2026-02-20）
+- **三层输出**：思想层（愿景文章）> 规范层（schema + prompts）> 工具层（渲染器 + 技能）。思想最有价值，工具会过时
+- **执行粒度是单节点**：每个 process 节点是一个完整的理解→实现→验证→状态更新循环，也是天然的对话断点
+- **技能引用而非复制规范**：`/map` 技能的 references/ 包含完整规范副本，确保技能自包含，不依赖仓库路径变动
+- **地图 JSON 放目标项目内**：不放 algorithm-map 仓库里，而是放在使用地图的目标项目根目录，确保项目自包含

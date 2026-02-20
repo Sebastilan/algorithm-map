@@ -20,9 +20,9 @@
 核心：让 CC 能生成和执行算法地图，而不只是渲染它。
 
 - [x] 生成规范 prompt（`prompts/generate-map.md`）
-
-- [ ] 执行规范 prompt（`prompts/execute-map.md`）← 当前步骤
-- [ ] 包装为 CC 技能 `/map`（plan / build / view）
+- [x] 执行规范 prompt（`prompts/execute-map.md`）
+- [x] 包装为 CC 技能 `/map`（plan / build / view）
+- [x] 更新 `docs/vision.md`（补充已实现部分）
 
 ## Phase 2: CC-Commander 集成
 
