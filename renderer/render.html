@@ -738,9 +738,27 @@ function layoutGraph() {
       const clipped = clipToShape(tgt, pts[pts.length - 2].x, pts[pts.length - 2].y);
       pts[pts.length - 1] = clipped;
     }
+
+    // Simplify: remove intermediate points that are nearly collinear
+    simplifyPath(pts);
   });
 
   return g;
+}
+
+// Remove intermediate points that are nearly collinear (perpendicular distance < threshold)
+function simplifyPath(pts) {
+  if (pts.length <= 2) return;
+  const threshold = 3; // pixels
+  for (let i = pts.length - 2; i >= 1; i--) {
+    const a = pts[i - 1], b = pts[i], c = pts[i + 1];
+    // Perpendicular distance of b from line a→c
+    const dx = c.x - a.x, dy = c.y - a.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 0.001) { pts.splice(i, 1); continue; }
+    const dist = Math.abs(dx * (a.y - b.y) - dy * (a.x - b.x)) / len;
+    if (dist < threshold) pts.splice(i, 1);
+  }
 }
 
 // Clip a line from (px, py) to node center to the actual shape boundary
