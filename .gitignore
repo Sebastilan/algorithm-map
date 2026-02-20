@@ -24,5 +24,8 @@ CLAUDE.local.md
 # Feedback (temp communication files)
 *.feedback.md
 
+# External map JSON (other projects' maps copied here for renderer)
+_external/
+
 # Archive
 _archive/
