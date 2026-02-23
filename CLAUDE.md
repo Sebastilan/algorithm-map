@@ -21,17 +21,17 @@ Phase 1.5 完成 + BPC 实战验证通过。渲染器 + 反馈桥 + 生成/执�
 algorithm-map/
 ├── schema/              # JSON Schema 定义
 ├── renderer/            # JSON → HTML 渲染器
-├── prompts/             # CC 生成/执行地图的 prompt 规范
+├── prompts/             # CC 生成/执行地图的 prompt 规范（技能唯一源头）
 │   ├── generate-map.md  # Plan 阶段：生成地图 JSON
-│   └── execute-map.md   # Build 阶段：逐节点实现 + 验证
+│   ├── execute-map.md   # Build 阶段：单 CC 顺序执行
+│   └── execute-foreman.md # Build 阶段：监工模式并行执行
 ├── examples/            # 示例地图 JSON
 ├── docs/                # 愿景文档、设计说明
 └── server.py            # 开发服务器（静态文件 + POST /api/feedback）
 
 CC 技能（项目外）：
 ~/.claude/skills/map/
-├── SKILL.md             # 技能主文件（/map plan|build|view）
-└── references/          # 引用生成/执行规范
+└── SKILL.md             # 薄路由，直接 Read 本项目 prompts/（无副本）
 ```
 
 ## 关键设计决策
@@ -114,3 +114,8 @@ CC 技能（项目外）：
 - **禁止路径过滤必须同时在两处生效**：① RMP.add_column 跳过重复路径 ② CG 过滤 forbidden_paths。只做其一会导致 pricing 重新生成被排除的列
 - **T4 实例设计原理**：正方形顶点布局使所有 pair 路线等价，LP 用 3 条 pair 各 0.5（=51），整数最优 pair+single=54。精心设计测试用例的价值远大于随机生成
 - **审计子 Agent 效果好**：独立审计发现的问题确实有价值（虽然本次主要 bug 是 builder 自己在测试中发现的）。审计的成本（~2分钟/节点）可接受
+
+### 技能与项目的维护架构（2026-02-23）
+- **技能不存副本，直接读项目文件**：之前 references/ 放规范副本导致手动同步负担。改为 SKILL.md 薄路由 + Read 项目 prompts/，改一处即生效
+- **两种 build 模式共存**：execute-map.md（单 CC 顺序）适合简单地图，execute-foreman.md（监工并行）适合复杂地图。用户通过 `--foreman` 切换
+- **技能更新不依赖项目目录**：用户在任何窗口说"改 map 规范"→ CC 直接改 `CCA/algorithm-map/prompts/` 对应文件
