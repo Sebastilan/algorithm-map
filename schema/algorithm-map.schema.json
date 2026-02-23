@@ -35,6 +35,16 @@
             "source":        { "type": "string", "description": "来源，如 CVRPLIB" }
           }
         },
+        "blueprint": {
+          "type": "object",
+          "description": "算法蓝图——用户无需逐节点展开即可理解算法全貌",
+          "additionalProperties": false,
+          "properties": {
+            "core_idea":      { "type": "string", "description": "核心思路：2-3 句话说清算法的核心逻辑" },
+            "data_flow":      { "type": "string", "description": "模块间数据流：各模块之间传什么数据、什么关系" },
+            "key_assumptions": { "type": "string", "description": "关键假设：算法成立的前提条件" }
+          }
+        },
         "test_instance": {
           "type": "string",
           "description": "第三步产出的小实例及已知答案（Markdown 格式），供 build 阶段验证使用"

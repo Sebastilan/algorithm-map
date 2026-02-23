@@ -71,6 +71,28 @@ Builder 自己执行 verify.core 中 `level: "L1"` 的验证项。这些验证�
 - **失败** → 改代码，重跑，直到通过
 - **认为期望值有误** → 标记争议（`"dispute": "理由"`），不改期望值，继续往下走
 
+### 硬暂停触发条件
+
+以下任一条件触发时，CC **必须停止当前节点工作**，向用户输出诊断信息并等待决策。不得自行跳过或静默处理。
+
+| # | 触发条件 | 说明 |
+|---|---------|------|
+| 1 | **L1 连续失败 3 次** | 同一验证项修复 3 轮仍不通过，说明实现思路可能有根本问题 |
+| 2 | **实现思路与 how 本质偏离** | how 描述的是算法 A，实际写了算法 B（如 how 说"标签算法解 ESPPRC"，实际写了"Dijkstra 近似"） |
+| 3 | **需要修改上游节点的 post 条件** | 说明 Plan 本身有缺陷，当前节点无法在现有契约下完成 |
+
+**触发时必须输出**：
+
+```
+⚠️ 硬暂停：[触发条件编号和名称]
+当前节点：{node_id}
+问题描述：...
+已尝试的方案：...
+建议选项：A) ... / B) ... / C) 用户指示
+```
+
+等待用户回复后再继续。
+
 ### 步骤 3：代码审查（Reviewer 子 Agent）
 
 L1 自检通过后，启动 Reviewer 子 Agent。**使用 Sonnet 模型，审查模板固定不可改**。
@@ -94,6 +116,7 @@ Task(subagent_type="general-purpose", model="sonnet", prompt="""
 3. 有无针对特定输入的 if 特判
 4. 有无被跳过/注释掉的关键步骤
 5. 数据来源是上游 checkpoint 还是凭空构造
+6. 若此节点是 region 最后一个 process 节点，L2 验证是否已触发
 
 ## 输出格式
 CLEAN — 无问题
@@ -117,6 +140,19 @@ Plan 阶段设计了三层验证（verify.core 中的 level 字段），Build �
 
 L2 验证项在 region 最后一个 process 节点的 verify.core（`level: "L2"`）中。
 L3 验证项在全图最后一个 process 节点的 verify.core（`level: "L3"`）中。
+
+### Region 进度追踪
+
+每个节点 verified 后，CC **必须**输出该节点所属 region 的进度：
+
+```
+✅ {node_id} verified
+   Region "{region_label}": {X}/{Y} nodes verified
+```
+
+当 region 所有 process 节点 verified 时，**自动触发 L2 验证**，不需要 CC 自行判断 region 边界——直接读 JSON 的 `graph.regions` 确定。
+
+**Reviewer 额外检查项**：Reviewer 审查清单中增加一条——"L2 是否在 region 完成时按时触发"。如果 Builder 跳过了 L2，Reviewer 应 FLAG。
 
 ## Benchmark 算例
 

@@ -88,7 +88,7 @@ body {
 .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.3s; }
 
 /* ===== Main Layout ===== */
-.main { display: flex; height: calc(100vh - var(--header-h)); }
+.main { display: flex; height: calc(100vh - var(--header-h)); flex: 1; overflow: hidden; }
 
 .flowchart-container {
   flex: 1;
@@ -397,6 +397,31 @@ body.anno-mode-on .edge-hit { pointer-events: stroke; cursor: crosshair; }
 }
 .toast.show { opacity: 1; }
 
+/* Blueprint bar */
+.blueprint-bar {
+  background: #f0f7ff; border-bottom: 1px solid #bfdbfe;
+  padding: 12px 20px; font-size: 13px; line-height: 1.7;
+  display: none;
+}
+.blueprint-bar.visible { display: block; }
+.blueprint-bar summary {
+  cursor: pointer; font-weight: 600; color: var(--accent); font-size: 14px;
+  list-style: none; display: flex; align-items: center; gap: 6px;
+}
+.blueprint-bar summary::before { content: "▸"; transition: transform 0.2s; }
+.blueprint-bar[open] summary::before { transform: rotate(90deg); }
+.blueprint-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
+  margin-top: 10px;
+}
+.blueprint-cell { }
+.blueprint-cell-title { font-weight: 600; color: var(--text); margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.blueprint-cell-body { color: var(--text-secondary); }
+
+@media (max-width: 900px) {
+  .blueprint-grid { grid-template-columns: 1fr; }
+}
+
 /* Loading */
 .loading-overlay {
   position: fixed; inset: 0; background: var(--bg);
@@ -437,6 +462,16 @@ body.anno-mode-on .edge-hit { pointer-events: stroke; cursor: crosshair; }
   <button class="header-btn" onclick="showModal('progress')">进度总览</button>
   <button class="header-btn anno-mode-btn" id="annoModeBtn" onclick="toggleAnnoMode()">批注模式</button>
 </div>
+
+<!-- Blueprint -->
+<details class="blueprint-bar" id="blueprintBar">
+  <summary>算法蓝图</summary>
+  <div class="blueprint-grid">
+    <div class="blueprint-cell"><div class="blueprint-cell-title">核心思路</div><div class="blueprint-cell-body" id="bpCoreIdea"></div></div>
+    <div class="blueprint-cell"><div class="blueprint-cell-title">数据流</div><div class="blueprint-cell-body" id="bpDataFlow"></div></div>
+    <div class="blueprint-cell"><div class="blueprint-cell-title">关键假设</div><div class="blueprint-cell-body" id="bpAssumptions"></div></div>
+  </div>
+</details>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
@@ -602,6 +637,15 @@ async function loadMap() {
   const badge = document.getElementById("mapPhase");
   if (phase) { badge.textContent = phase; } else { badge.style.display = "none"; }
   document.title = mapData.meta.title || "算法地图";
+
+  // Blueprint
+  const bp = mapData.meta.blueprint;
+  if (bp && (bp.core_idea || bp.data_flow || bp.key_assumptions)) {
+    document.getElementById("bpCoreIdea").textContent = bp.core_idea || "";
+    document.getElementById("bpDataFlow").textContent = bp.data_flow || "";
+    document.getElementById("bpAssumptions").textContent = bp.key_assumptions || "";
+    document.getElementById("blueprintBar").classList.add("visible");
+  }
 
   // Init state
   initState();

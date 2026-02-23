@@ -105,10 +105,16 @@ def BPC(instance):
 
 **节点粒度**：一个 process ≈ 一个可独立测试的函数。简单赋值合并到相邻 process。auxiliary 仅用于图上不可缺少的中间标注，不承载实现逻辑。只有 process 和含判断逻辑的 decision 需要填 contents。
 
+**填写算法蓝图**（`meta.blueprint`）：
+- `core_idea`：2-3 句话说清算法的核心逻辑
+- `data_flow`：模块间数据流（如"主问题松弛 → CG → 定价 → 列入库 → 分支 → 回到 CG"）
+- `key_assumptions`：算法成立的前提条件
+
 **A4 自检**：
 - 所有 edge 的 from/to 引用了存在的 node id
 - decision 节点的出边有 label
 - regions 中的 node id 都存在
+- `meta.blueprint` 三个字段均已填写
 
 **收尾**：写入 JSON，启动渲染器，输出 URL：
 
@@ -145,7 +151,9 @@ def BPC(instance):
 
 **格式**（严格遵守，禁止写成字符串数组）：
 - pre/post 每项：`{"desc": "条件描述", "check": "断言表达式"}`
-- core 每项：`{"desc": "验证描述", "level": "L1", "method": "验证方法"}`
+- core 每项：`{"desc": "验证描述", "level": "L1", "method": "验证方法", "cmd": "pytest test_xxx.py -k 'test_name'"}`
+
+**cmd 字段要求**：每条 L1 验证项**必须**填写 `cmd` 字段。Plan 阶段填写测试意图 + 命令模板（如 `pytest test_cg.py -k "lp_relaxation"`），Build 阶段再补全具体实现。目的：验证标准在 Plan 阶段锁定，CC 不能通过宽松解读降低标准。
 
 **安放规则**：
 - L1 → 各 process 节点的 verify.core
@@ -214,6 +222,7 @@ def BPC(instance):
 {
   "version": "0.1.0",
   "meta": { "title": "", "phase": "plan", "created": "", "updated": "",
+            "blueprint": { "core_idea": "", "data_flow": "", "key_assumptions": "" },
             "benchmark": { "file": "", "known_optimal": null, "source": "" },
             "test_instance": "示例数据完整文本（Markdown）" },
   "graph": {
@@ -226,7 +235,7 @@ def BPC(instance):
       "title": "", "overview": "", "how": "",
       "verify": {
         "pre":  [{"desc": "条件描述", "check": "断言表达式"}],
-        "core": [{"desc": "验证描述", "level": "L1", "method": "验证方法"}],
+        "core": [{"desc": "验证描述", "level": "L1", "method": "验证方法", "cmd": "pytest test_xxx.py -k 'test_name'"}],
         "post": [{"desc": "条件描述", "check": "断言表达式"}]
       },
       "code": { "files": [], "snippet": "" }, "refs": "", "pitfalls": ""
