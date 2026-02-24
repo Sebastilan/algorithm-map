@@ -69,9 +69,11 @@ def BPC(instance):
 ### A2. 逐节点确定方案
 
 - **输入**：A1 的伪代码
-- **方法**：用自身知识为每个节点选定方案。只在确实不知道关键细节时才搜索（不要"为了确认"而搜索）
+- **环境探查（必做）**：选型前先检查用户环境有什么可用工具，用 `pip show` / `which` / 版本检查等确认。例如：有 Gurobi 就不用 PuLP，有 GPU 就考虑加速。**禁止凭默认假设选型。**
+- **方法**：结合环境探查结果和自身知识，为每个节点选定方案。只在确实不知道关键细节时才搜索
 - **输出**：对话中简要列出各节点的选定方案和一句话理由，标注 `=== A2 节点方案 ===`
 - 不要在对话中输出详细伪代码——详细实现直接写入 JSON 的 contents.how
+- **`how` 字段格式**：用代码块（```python）或结构化伪代码，禁止散文叙述夹 Unicode 数学符号（渲染器对散文格式的公式支持差）
 - **选经典方案，不追前沿**。Plan 阶段目标是"跑通"，不是"最优"。前沿优化留给 build 之后。经过验证的、业界常用的、稳定的方案就是最好的选择
 
 ### A3. 判断算法类型
@@ -100,7 +102,7 @@ def BPC(instance):
 **转换规则**：
 - 函数调用 → `process` 节点
 - if/else → `decision` 节点（整体一个节点，不拆分各分支）
-- while 范围 → `region`
+- while 范围 / 逻辑模块 → `region`（必须填 `id` + `semantic`，`verify` 留空待 Phase B）
 - 起止 → `terminal` 节点
 
 **节点粒度**：一个 process ≈ 一个可独立测试的函数。简单赋值合并到相邻 process。auxiliary 仅用于图上不可缺少的中间标注，不承载实现逻辑。只有 process 和含判断逻辑的 decision 需要填 contents。
@@ -113,7 +115,7 @@ def BPC(instance):
 **A4 自检**：
 - 所有 edge 的 from/to 引用了存在的 node id
 - decision 节点的出边有 label
-- regions 中的 node id 都存在
+- regions 中的 node id 都存在，每个 region 有 `id` 和 `semantic`
 - `meta.blueprint` 三个字段均已填写
 
 **收尾**：写入 JSON，启动渲染器，输出 URL：
@@ -157,8 +159,23 @@ def BPC(instance):
 
 **安放规则**：
 - L1 → 各 process 节点的 verify.core
-- L2 → region 最后一个 process 节点的 verify.core（level: "L2"）
+- L2 → **region 的 verify.core**（不放在节点里，放在 region 对象自身的 verify 字段）
 - L3 → 全图最后一个 **process** 节点的 verify.core（level: "L3"）
+
+**L2 设计必做三步**（region 级验证的核心，禁止跳过）：
+
+1. **一句话总结 region 语义** → 写入 `region.semantic`。描述其输入→输出的数学/逻辑等价关系。例如：
+   - "列生成循环 = 求解集合划分 LP 松弛"
+   - "ALNS 主循环 = 启发式搜索可行解空间"
+   - "特征工程 = 原始数据 → 特征矩阵"
+
+2. **找独立验证路径**：有没有一种**不经过 region 内部节点**的方式得到同样结果？
+   - 精确算法：用独立求解器直接求解（如 Gurobi 直接解完整 LP）
+   - 启发式：统计性质（收敛趋势、分布检验）
+   - 数据流：端到端输入→输出比对
+   - **如果找不到独立路径**：至少验证 region 输出满足的数学性质（如单调性、界的合法性）
+
+3. **查下方算法类型表**，选择具体策略 → 写入 `region.verify.core`（不是节点的 verify）
 
 **质量底线**：禁止"输出非空"、"格式正确"、"运行无报错"这类永远通过的验证。好的验证能区分正确实现和错误实现。
 
@@ -203,7 +220,7 @@ def BPC(instance):
 1. **JSON 合法**：json.load 正常解析
 2. **边引用完整**：所有 edge from/to 对应存在的 node id
 3. **Post→Pre 衔接**：逐条边检查上游 post 能保证下游 pre
-4. **Verify 非空**：所有 process 节点的 verify.core 至少 1 项
+4. **Verify 非空**：所有 process 节点的 verify.core 至少 1 项；所有 region 的 verify.core 至少 1 项（L2）
 5. **State 完整**：所有 process 节点在 state.nodes 中有条目
 
 校验通过后，更新渲染器文件，输出 URL：
@@ -228,7 +245,11 @@ def BPC(instance):
   "graph": {
     "nodes": [{ "id": "01_xxx", "label": "步骤名", "type": "process" }],
     "edges": [{ "from": "start", "to": "01_xxx" }],
-    "regions": [{ "label": "主循环", "nodes": ["01_xxx"] }]
+    "regions": [{
+      "id": "main_loop", "label": "主循环", "semantic": "一句话描述 region 的输入→输出等价关系",
+      "nodes": ["01_xxx"],
+      "verify": { "pre": [], "core": [{"desc": "L2 交叉验证", "level": "L2", "method": "独立路径验证", "cmd": "pytest ..."}], "post": [] }
+    }]
   },
   "contents": {
     "01_xxx": {

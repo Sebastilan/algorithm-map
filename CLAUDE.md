@@ -1,5 +1,45 @@
 # Algorithm Map — 项目规范
 
+## Session 登记（生成渲染器 URL 时必须执行）
+
+每次生成地图渲染器 URL 时，**立即**把当前 terminal ID 写入 `.session` 旁路文件：
+
+```python
+# map_json_path = 地图 JSON 的路径，如 "C:/xxx/algorithm-map.json"
+# terminal_id   = 当前 multi-cc terminal ID（从 /api/terminals 获取当前会话 ID）
+#                 本地 session 无 terminal ID 时写空字符串
+session_path = map_json_path.replace(".json", ".session")
+with open(session_path, "w") as f:
+    f.write(terminal_id or "")
+```
+
+**作用**：用户提交批注时，server 读此文件定位"上次操作该地图的终端"，优先推送到原终端而非随机选择。
+
+---
+
+## 启动自检（每次启动自动执行）
+
+在此目录启动时，立即检查 `_external/` 下是否有待处理的批注文件：
+
+```python
+# 伪代码
+feedback_files = glob("_external/*.feedback.md")
+for f in feedback_files:
+    json_file = f.replace(".feedback.md", ".json")
+    if f.mtime > json_file.mtime:   # 批注比地图新 → 待处理
+        read(f)                      # 读取批注内容
+        read(json_file)              # 读取对应地图 JSON
+        process_feedback()           # 按 /map 技能处理批注
+        rename(f, f + ".done")       # 标记已处理，避免重复
+```
+
+**处理规则**：
+- 批注内容是用户对节点的修改意见，按 `/map upgrade` 流程更新地图 JSON
+- 处理完把 `.feedback.md` 改名为 `.feedback.md.done`（保留记录，不删除）
+- 如无待处理批注 → 正常启动，等待用户指令
+
+---
+
 ## 项目概述
 
 **算法地图**（Algorithm Map）是一套面向 AI 编程时代的算法管理协议和工具链。核心思想：用结构化的交互式流程图替代纯文字 plan，通过分层验证体系建立对 AI 生成代码的信任链。
