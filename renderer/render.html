@@ -856,7 +856,8 @@ function renderFlowchart(g) {
   const offsetX = 40, offsetY = 40;
   let svgContent = "";
 
-  // Regions — sort by area (largest first) so outer regions get more padding
+  // Regions — sort ascending by area for padding (larger regions get more padding)
+  // then draw in REVERSE order so smaller (inner) regions are on top for click priority
   const regionBounds = REGIONS.map(region => {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     region.nodes.forEach(nid => {
@@ -870,13 +871,16 @@ function renderFlowchart(g) {
     return { id: region.id || "", label: region.label, minX, minY, maxX, maxY, area: (maxX - minX) * (maxY - minY) };
   });
   regionBounds.sort((a, b) => a.area - b.area);
-  regionBounds.forEach((rb, i) => {
-    const pad = 30 + i * 20;
+  regionBounds.forEach((rb, i) => { rb.pad = 30 + i * 20; });
+  // Draw largest first (background), smallest last (foreground = clickable on top)
+  for (let i = regionBounds.length - 1; i >= 0; i--) {
+    const rb = regionBounds[i];
+    const pad = rb.pad;
     svgContent += `<g class="region-group" data-region="${rb.id}">`;
     svgContent += `<rect class="region-rect" x="${rb.minX + offsetX - pad}" y="${rb.minY + offsetY - pad}" width="${rb.maxX - rb.minX + pad*2}" height="${rb.maxY - rb.minY + pad*2}" />`;
     svgContent += `<text class="region-label" x="${rb.minX + offsetX - pad + 12}" y="${rb.minY + offsetY - pad + 16}">${rb.label}</text>`;
     svgContent += `</g>`;
-  });
+  }
 
   // Edges
   g.edges().forEach(e => {
