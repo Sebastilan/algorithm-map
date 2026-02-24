@@ -122,12 +122,23 @@ svg.flowchart { display: block; margin: 0 auto; }
 
 /* Region labels */
 .region-rect {
-  fill: none; stroke: var(--accent); stroke-width: 1;
+  fill: transparent; stroke: var(--accent); stroke-width: 1;
   stroke-dasharray: 6 3; rx: 12; opacity: 0.4;
+  transition: opacity 0.2s, stroke-width 0.2s;
 }
+.region-group { cursor: pointer; }
+.region-group:hover .region-rect { opacity: 0.7; stroke-width: 2; }
+.region-group.selected .region-rect { opacity: 0.9; stroke-width: 2.5; stroke-dasharray: none; }
 .region-label {
   font-size: 11px; font-weight: 600; fill: var(--accent); letter-spacing: 0.5px;
+  pointer-events: none;
 }
+.region-member-node {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px;
+  cursor: pointer; transition: background 0.15s;
+}
+.region-member-node:hover { background: var(--accent-light); }
 
 /* ===== Right Panel ===== */
 .panel {
@@ -461,6 +472,7 @@ body.anno-mode-on .edge-hit { pointer-events: stroke; cursor: crosshair; }
   <button class="header-btn" onclick="showModal('legend')">图例</button>
   <button class="header-btn" onclick="showModal('progress')">进度总览</button>
   <button class="header-btn anno-mode-btn" id="annoModeBtn" onclick="toggleAnnoMode()">批注模式</button>
+  <button class="header-btn" onclick="exportStandalone()" title="生成独立 HTML，可离线查看和批注">导出</button>
 </div>
 
 <!-- Blueprint -->
@@ -602,22 +614,21 @@ function renderMd(md) {
 //  Load JSON
 // ===================================================================
 async function loadMap() {
-  const params = new URLSearchParams(location.search);
-  let src = params.get("src");
-
-  if (!src) {
-    // Try default path
-    src = "../examples/bpc-phase1.json";
-  }
-
-  try {
-    const resp = await fetch(src);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    mapData = await resp.json();
-  } catch (err) {
-    document.getElementById("loadingOverlay").textContent =
-      `Failed to load: ${src}\n${err.message}\n\nUsage: render.html?src=path/to/map.json`;
-    return;
+  // Standalone mode: JSON embedded directly in HTML (window.__MAP_DATA__)
+  if (window.__MAP_DATA__) {
+    mapData = window.__MAP_DATA__;
+  } else {
+    const params = new URLSearchParams(location.search);
+    let src = params.get("src") || "../examples/bpc-phase1.json";
+    try {
+      const resp = await fetch(src);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      mapData = await resp.json();
+    } catch (err) {
+      document.getElementById("loadingOverlay").textContent =
+        `Failed to load: ${src}\n${err.message}\n\nUsage: render.html?src=path/to/map.json`;
+      return;
+    }
   }
 
   // Populate globals
@@ -856,13 +867,15 @@ function renderFlowchart(g) {
       maxX = Math.max(maxX, n.x + n.width/2);
       maxY = Math.max(maxY, n.y + n.height/2);
     });
-    return { label: region.label, minX, minY, maxX, maxY, area: (maxX - minX) * (maxY - minY) };
+    return { id: region.id || "", label: region.label, minX, minY, maxX, maxY, area: (maxX - minX) * (maxY - minY) };
   });
   regionBounds.sort((a, b) => a.area - b.area);
   regionBounds.forEach((rb, i) => {
     const pad = 30 + i * 20;
+    svgContent += `<g class="region-group" data-region="${rb.id}">`;
     svgContent += `<rect class="region-rect" x="${rb.minX + offsetX - pad}" y="${rb.minY + offsetY - pad}" width="${rb.maxX - rb.minX + pad*2}" height="${rb.maxY - rb.minY + pad*2}" />`;
     svgContent += `<text class="region-label" x="${rb.minX + offsetX - pad + 12}" y="${rb.minY + offsetY - pad + 16}">${rb.label}</text>`;
+    svgContent += `</g>`;
   });
 
   // Edges
@@ -984,10 +997,18 @@ function openPanel(nodeId) {
   const data = CONTENTS[nodeId];
   if (!data) return;
 
+  panelMode = "node";
   document.querySelectorAll(".node-group").forEach(g => g.classList.remove("selected"));
+  document.querySelectorAll(".region-group").forEach(g => g.classList.remove("selected"));
   const grp = document.querySelector(`[data-node="${nodeId}"]`);
   if (grp) grp.classList.add("selected");
   currentNodeId = nodeId;
+
+  // Restore node-mode tabs
+  document.querySelector(".panel-status").style.display = "";
+  const tabBtns = document.getElementById("tabBar").querySelectorAll(".tab-btn");
+  const nodeTabLabels = { overview: "概述", how: "How", verify: "Verify", code: "Code", refs: "参考", pitfalls: "踩坑" };
+  tabBtns.forEach(btn => { btn.style.display = ""; btn.textContent = nodeTabLabels[btn.dataset.tab] || btn.dataset.tab; });
 
   document.getElementById("panelTitle").textContent = data.title;
   statusSel.value = state.statuses[nodeId] || "not_started";
@@ -1058,11 +1079,98 @@ function openPanel(nodeId) {
   switchTab("overview");
 }
 
+let panelMode = "node"; // "node" or "region"
+
+function openRegionPanel(regionId) {
+  const region = REGIONS.find(r => r.id === regionId);
+  if (!region) return;
+
+  panelMode = "region";
+  currentNodeId = null;
+
+  // Selection highlighting
+  document.querySelectorAll(".node-group").forEach(g => g.classList.remove("selected"));
+  document.querySelectorAll(".region-group").forEach(g => g.classList.remove("selected"));
+  const rg = document.querySelector(`[data-region="${regionId}"]`);
+  if (rg) rg.classList.add("selected");
+
+  document.getElementById("panelTitle").textContent = region.label;
+  document.querySelector(".panel-status").style.display = "none";
+
+  // Tab labels for region mode
+  const tabBar = document.getElementById("tabBar");
+  const tabBtns = tabBar.querySelectorAll(".tab-btn");
+  const regionTabs = ["overview", "how", "verify"];
+  tabBtns.forEach(btn => {
+    const tab = btn.dataset.tab;
+    if (tab === "overview") { btn.textContent = "概述"; btn.style.display = ""; }
+    else if (tab === "how") { btn.textContent = "节点"; btn.style.display = ""; }
+    else if (tab === "verify") { btn.textContent = "Verify"; btn.style.display = ""; }
+    else { btn.style.display = "none"; }
+  });
+
+  // Overview — semantic description
+  const semanticHtml = renderMd(region.semantic || "暂无语义描述。");
+
+  // Member nodes list
+  let nodesHtml = "";
+  (region.nodes || []).forEach(nid => {
+    const nodeData = CONTENTS[nid];
+    const st = state.statuses[nid] || "not_started";
+    const title = nodeData?.title || nid;
+    nodesHtml += `<div class="region-member-node" data-goto="${nid}"><div class="legend-dot" style="background:${STATUS_COLORS[st]}"></div><span>${title}</span><span style="margin-left:auto;color:var(--text-secondary);font-size:12px">${STATUS_LABELS[st]}</span></div>`;
+  });
+
+  // Verify — L2 verification
+  const verify = region.verify || {};
+  const sections = [
+    { key: "pre",  title: "前置条件", subtitle: "region 输入满足要求吗？", icon: "⬇" },
+    { key: "core", title: "区域验证 (L2)", subtitle: "各模块组合后整体正确吗？", icon: "⚙" },
+    { key: "post", title: "后置条件", subtitle: "region 输出能被外部正确消费吗？", icon: "⬆" },
+  ];
+  let verifyHtml = "", globalIdx = 0, totalItems = 0;
+  sections.forEach(sec => {
+    const items = verify[sec.key] || [];
+    if (items.length === 0) return;
+    verifyHtml += `<div class="verify-section-header"><span class="verify-section-icon">${sec.icon}</span><div><strong>${sec.title}</strong><div class="verify-section-sub">${sec.subtitle}</div></div></div>`;
+    items.forEach(item => {
+      const checked = state.verifyChecks[regionId]?.[globalIdx] ? "checked" : "";
+      const passedClass = checked ? " passed" : "";
+      const levelTag = item.level ? `<span class="verify-level">${item.level}</span>` : "";
+      const checkTag = item.check ? `<div class="verify-method-text">检查：${item.check}</div>` : "";
+      const methodTag = item.method ? `<div class="verify-method-text">方法：${item.method}</div>` : "";
+      const cmdEl = item.cmd ? `<code class="verify-cmd">${item.cmd}</code>` : "";
+      verifyHtml += `<div class="verify-item${passedClass}"><span class="verify-check-icon">${checked ? "✅" : "⬜"}</span><div class="verify-content"><div>${item.desc}</div><div class="verify-meta">${levelTag}</div>${checkTag}${methodTag}${cmdEl}</div></div>`;
+      totalItems++;
+      globalIdx++;
+    });
+  });
+  const checkedCount = Object.values(state.verifyChecks[regionId] || {}).filter(Boolean).length;
+  const verifyFullHtml = `<div class="verify-header"><h3>区域验证</h3><p>L2 交叉验证：各子模块组合后，整体行为是否符合预期。</p></div>${verifyHtml}<div class="verify-summary">通过 <span class="verify-summary-count">${checkedCount} / ${totalItems}</span> 项</div>`;
+
+  rawTabContent = { overview: semanticHtml, how: nodesHtml, verify: "", code: "", refs: "", pitfalls: "" };
+  for (const [tab, html] of Object.entries(rawTabContent)) {
+    document.getElementById(`pane-${tab}`).innerHTML = html;
+  }
+  document.getElementById("pane-verify").innerHTML = verifyFullHtml;
+
+  document.getElementById("panel").classList.add("open");
+  document.getElementById("flowchartContainer").classList.add("panel-open");
+  switchTab("overview");
+
+  // Click on member node → jump to that node's panel
+  document.querySelectorAll(".region-member-node[data-goto]").forEach(el => {
+    el.addEventListener("click", () => openPanel(el.dataset.goto));
+  });
+}
+
 function closePanel() {
   document.getElementById("panel").classList.remove("open");
   document.getElementById("flowchartContainer").classList.remove("panel-open");
   document.querySelectorAll(".node-group").forEach(g => g.classList.remove("selected"));
+  document.querySelectorAll(".region-group").forEach(g => g.classList.remove("selected"));
   currentNodeId = null;
+  panelMode = "node";
 }
 
 // Tab switching
@@ -1307,29 +1415,68 @@ async function submitFeedback() {
   const md = buildFeedbackMarkdown();
   if (!md) { showToast("没有批注"); return; }
 
-  const mapPath = getMapPath();
+  const mapPath = window.__MAP_PATH__ || getMapPath();
   const title = mapData?.meta?.title || "Algorithm Map";
+  const terminalId = window.__TERMINAL_ID__ || new URLSearchParams(location.search).get("terminal") || null;
+  const payload = JSON.stringify({ mapPath, title, markdown: md, terminalId });
 
-  try {
-    const resp = await fetch("/api/feedback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mapPath, title, markdown: md }),
-    });
-    const result = await resp.json();
-    if (result.ok) {
-      showToast(`反馈已写入 ${result.path}`);
-      return;
-    }
-    throw new Error(result.error || "Server error");
-  } catch (err) {
-    // Fallback: copy to clipboard (works with plain static server)
+  // Endpoints to try in order: embedded list → local server → frp remote
+  const endpoints = window.__API_ENDPOINTS__ || [
+    `${location.protocol}//${location.host}/api/map-feedback`,
+    "http://localhost:3002/api/map-feedback",
+    "http://120.26.28.49:10001/api/map-feedback",
+  ];
+
+  for (const url of endpoints) {
     try {
-      await navigator.clipboard.writeText(md);
-      showToast("服务器不可用，已复制到剪贴板");
-    } catch {
-      prompt("请手动复制反馈 Markdown：", md);
-    }
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      });
+      const result = await resp.json();
+      if (result.ok) {
+        const msg = result.pushedTo
+          ? "✓ 已推送到 CC 终端"
+          : "✓ 已提交，正在打开新 CC 窗口…";
+        showToast(msg);
+        // 通知父窗口（review.html iframe 模式）跳回终端页
+        if (window.parent !== window) {
+          window.parent.postMessage({ type: "feedback-submitted", terminalId }, "*");
+        }
+        return;
+      }
+    } catch { /* try next */ }
+  }
+
+  // All endpoints failed — clipboard fallback
+  try {
+    await navigator.clipboard.writeText(md);
+    showToast("服务器不可用，已复制到剪贴板");
+  } catch {
+    prompt("请手动复制反馈 Markdown：", md);
+  }
+}
+
+async function exportStandalone() {
+  if (!mapData) { showToast("地图未加载"); return; }
+  showToast("正在生成独立 HTML…");
+  const params = new URLSearchParams(location.search);
+  const src = params.get("src") || "";
+  const terminal = params.get("terminal") || "";
+  try {
+    const url = `/api/export?src=${encodeURIComponent(src)}&terminal=${encodeURIComponent(terminal)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const blob = await resp.blob();
+    const title = (mapData?.meta?.title || "algorithm-map").replace(/[\\/:*?"<>|]/g, "_");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${title}.html`;
+    a.click();
+    showToast("✓ 已下载独立 HTML");
+  } catch (err) {
+    showToast(`导出失败: ${err.message}`);
   }
 }
 
@@ -1355,10 +1502,19 @@ function toggleAnnoMode() {
 // Click handler for flow chart
 document.getElementById("flowchartSvg").addEventListener("click", e => {
   if (!annoModeOn) {
+    // Node clicks take priority (nodes are drawn on top of regions)
     const grp = e.target.closest(".node-group");
-    if (!grp) return;
-    const nid = grp.dataset.node;
-    if (CONTENT_NODES.includes(nid)) openPanel(nid);
+    if (grp) {
+      const nid = grp.dataset.node;
+      if (CONTENT_NODES.includes(nid)) openPanel(nid);
+      return;
+    }
+    // Region click — open region panel
+    const regionGrp = e.target.closest(".region-group");
+    if (regionGrp && regionGrp.dataset.region) {
+      openRegionPanel(regionGrp.dataset.region);
+      return;
+    }
     return;
   }
 
