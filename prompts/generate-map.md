@@ -23,7 +23,8 @@
 - **连续执行不暂停**：A1 到 B4 一口气跑完，中间不等用户确认。唯一停点：B4 校验通过后出图
 - **增量写文件**：A4 写 JSON 骨架，B1-B4 读文件补充验证，不依赖对话记忆
 - **对话从简**：对话中只输出步骤号 + 一行进展。禁止在对话中输出大段伪代码、方案表格、JSON 片段
-- **CC 读 JSON，用户看 HTML**：CC 始终读写 `algorithm-map.json`。用户看 standalone HTML（交互式流程图）。**禁止把 JSON 内容贴到对话中让用户看**
+- **CC 读 JSON，用户看 HTML**：CC 始终读写 `algorithm-map.json`。用户看 standalone HTML（交互式流程图）。**禁止把 JSON 内容贴到对话中让用户看，禁止 CC 读取 HTML 文件**
+- **JSON 内容统一用中文**：title、overview、how 中的注释和说明、verify 的 desc、pitfalls 等文本字段用中文。代码块内的变量名/函数名保持英文
 
 **调研控制**：
 - **默认用自身知识**——CC 的训练数据覆盖绝大多数经典算法，直接用即可
