@@ -23,7 +23,7 @@
 - **连续执行不暂停**：A1 到 B4 一口气跑完，中间不等用户确认。唯一停点：B4 校验通过后出图
 - **增量写文件**：A4 写 JSON 骨架，B1-B4 读文件补充验证，不依赖对话记忆
 - **对话从简**：对话中只输出步骤号 + 一行进展。禁止在对话中输出大段伪代码、方案表格、JSON 片段
-- **交付物是渲染器 URL**：用户看 HTML 流程图审阅，CC 读写 JSON。**禁止把 JSON 内容贴到对话中让用户看**
+- **CC 读 JSON，用户看 HTML**：CC 始终读写 `algorithm-map.json`。用户看 standalone HTML（交互式流程图）。**禁止把 JSON 内容贴到对话中让用户看**
 
 **调研控制**：
 - **默认用自身知识**——CC 的训练数据覆盖绝大多数经典算法，直接用即可
@@ -106,7 +106,7 @@
 
 - 设计节点间传递的数据结构，对话中简要输出
 - 构造最小规模示例数据：
-  - 能触发所有分支路径
+  - **必须能触发所有分支路径**——逐个 decision 节点检查，确保示例数据能让每个分支都被走到。如果单个示例不够，构造多个互补示例
   - 有已知正确答案（手算 / 枚举 / 标准算例）
   - 优先用行业标准测试数据，没有再自造
 - 写入 JSON `meta.test_instance`（Markdown 格式）
@@ -115,6 +115,7 @@
 
 为每个 process/decision 节点填写 `verify.pre` 和 `verify.post`：
 - 格式：`{"desc": "条件描述", "check": "断言表达式"}`
+- **每个节点至少 1 条 post 断言**（包括 decision 节点——断言判定条件本身的合法性）
 - 逐条边检查：上游 post 能保证下游 pre
 
 ### B3. 识别关键点 + 设计验证
@@ -160,7 +161,7 @@
 |------|------|------|
 | 节点 | verify.core 写 L1 测试用例（含 cmd） | verify.core 留空，只写 post 断言 |
 | Region | verify.core 写 L2 交叉验证（含 cmd） | verify.core 留空，只写 post 断言 |
-| 全图 | 最后一个 process 节点写 L3（含 cmd） | — |
+| 全图 | 最后一个 process 节点写 L3（含 cmd）。若最后一步是 terminal，往前找最近的 process | — |
 
 #### 第三步：关键 region 的 L2 设计（必做三步）
 
@@ -175,6 +176,8 @@
 3. **查下方算法类型表**，选择具体策略 → 写入 `region.verify.core`
 
 **质量底线**：关键点的验证必须能区分正确实现和错误实现。禁止"输出非空"、"格式正确"这类永远通过的验证。
+
+**L2 与 L3 的边界**：L2 验证 region 内部逻辑的正确性（用独立路径交叉验证），L3 验证整个算法端到端的结果。**禁止在 region L2 中写端到端基准测试**——那是 L3 的职责。
 
 #### 按算法类型的验证设计指南
 
@@ -220,15 +223,22 @@
 4. **关键点有 core**：所有 `critical: true` 的节点 verify.core 至少 1 项（L1）；所有 `critical: true` 的 region verify.core 至少 1 项（L2）。`critical: false` 的至少有 post 断言
 5. **State 完整**：所有 process 节点在 state.nodes 中有条目
 
-校验通过后，启动渲染器，输出 URL：
+校验通过后，生成 standalone HTML 并交付：
+
+```bash
+python C:/Users/ligon/CCA/algorithm-map/tools/export_standalone.py algorithm-map.json
+```
+
+输出交付：
 
 ```
 === Plan 完成 ===
-渲染器 URL: http://localhost:8765/renderer/render.html?src=...
+[SHARE:algorithm-map.html的绝对路径]
 请审阅完整地图（节点方案 + 验证设计）。
 ```
 
 **这是 `/map plan` 的唯一交付点。** 之前所有步骤连续执行，到这里才停下等用户。
+**交付的是 standalone HTML**（内嵌 JSON 的交互式流程图），不是渲染器 URL。
 
 ---
 
@@ -321,7 +331,11 @@
 - 新增的边引用合法
 - 重置的节点 state 正确
 
-输出变更摘要：
+生成 standalone HTML 并输出变更摘要：
+
+```bash
+python C:/Users/ligon/CCA/algorithm-map/tools/export_standalone.py algorithm-map.json
+```
 
 ```
 === 升级完成 ===
@@ -329,7 +343,7 @@
 新增节点：无
 重置节点：05_destroy
 未受影响：01_parse, 02_init_sol, 03_init_weights, ...（保持 verified）
-渲染器 URL: http://localhost:8765/renderer/render.html?src=...
+[SHARE:algorithm-map.html的绝对路径]
 请审阅变更，确认后用 /map build 重建受影响的节点。
 ```
 
@@ -337,4 +351,4 @@
 
 ## 处理用户反馈
 
-用户在渲染器批注后生成 `.feedback.md`，读取后按节点修改 JSON，告知用户刷新浏览器。
+用户通过审阅系统批注后，反馈消息自动发回对话。CC 读取反馈，按节点修改 JSON，重新生成 standalone HTML 并 `[SHARE:]` 交付。
