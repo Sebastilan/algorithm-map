@@ -53,7 +53,7 @@ for f in feedback_files:
 
 ## 当前阶段
 
-Phase 1.5 完成 + BPC 实战验证通过。渲染器 + 反馈桥 + 生成/执行规范 + `/map` 技能全部就绪。BPC 作为首个验证项目完成全部 9 节点 build + audit，159 个测试全过。下一步：Phase 2（CC Commander 集成）。
+Phase 1.8 完成（Execute 优化）。Plan + Execute 双规范均经 CVRP B&P 测试验证，完整 build 一次通过（13 节点、37 测试、$15）。下一步：Phase 1.9（端到端效能对比）或 Phase 2（CC Commander 集成）。
 
 ## 项目结构
 
@@ -154,6 +154,16 @@ CC 技能（项目外）：
 - **禁止路径过滤必须同时在两处生效**：① RMP.add_column 跳过重复路径 ② CG 过滤 forbidden_paths。只做其一会导致 pricing 重新生成被排除的列
 - **T4 实例设计原理**：正方形顶点布局使所有 pair 路线等价，LP 用 3 条 pair 各 0.5（=51），整数最优 pair+single=54。精心设计测试用例的价值远大于随机生成
 - **审计子 Agent 效果好**：独立审计发现的问题确实有价值（虽然本次主要 bug 是 builder 自己在测试中发现的）。审计的成本（~2分钟/节点）可接受
+
+### Execute 规范优化——CVRP B&P 测试驱动（2026-02-25）
+- **决策节点不单独实现**：decision 节点是流程控制（if/while），逻辑嵌入相邻 process 节点。当所有入边 process 节点 verified 后自动标记 verified
+- **Checkpoint 必须存真实数据**：R1 Worker 存了 `"dist_shape": "(n+1, n+1)"`（类型描述），毫无验证价值。加明确正反例后 R2 修正为真实数值
+- **测试命名必须含 node_id**：R1 Worker 把 `test_03_build_rmp.py` 缩写为 `test_rmp.py`，后续节点多了会撞名。强制 `test_{node_id}.py` 后不再出错
+- **项目初始化必须前置**：map_utils.py、conftest.py（公共 fixture）、requirements.txt 在首节点之前一次性搞定，否则每个节点都在重复配置
+- **效率关键：不读全量 JSON**：1000+ 行 JSON 每次全读浪费 token。首次建立理解后只读当前节点的 contents 和 state
+- **并行是质量工具不是效率工具**：Plan 阶段 B1/B2/B3 并行化让验证项从 ~15 提升到 ~23 有效项，但成本增加 70%。取舍明确
+- **37 个测试的分布**：L1 ~27（9 process 节点 × 3）+ L2 ~7（2 region）+ L3 ~3。每节点 3 个用例（基本功能、边界、checkpoint 一致性）对算法代码合理
+- **一次通过是核心价值**：好的 plan（验证设计充分）+ 好的 execute spec（规则明确）→ CC 一次写对，避免 debug 循环。B&B 列池 bug 在 BPC 项目曾反复折腾，这次 CVRP B&P 提前在 plan 和 spec 中警告后首次通过
 
 ### 技能与项目的维护架构（2026-02-23）
 - **技能不存副本，直接读项目文件**：之前 references/ 放规范副本导致手动同步负担。改为 SKILL.md 薄路由 + Read 项目 prompts/，改一处即生效

@@ -53,10 +53,20 @@
 - [x] B1/B2/B3 并行化：Task 工具并行启动，主 CC 合并写入
 - [x] 测试结果：28 项核心验证（20 L1 + 7 L2 + 1 L3），2 组互补手算实例
 
-## Phase 1.8: Execute 技能优化 ← 当前阶段
+## Phase 1.8: Execute 技能优化 ✅
 
-- [ ] 分析 `execute-map.md` 现有问题（基于 BPC 实战经验）
-- [ ] 测试并迭代优化
+CVRP B&P 测试驱动，3 轮迭代（R1 前 3 节点 → R2 节点 04-05 → R3 全量 build）。
+
+- [x] 分析 `execute-map.md` 8 项问题（决策节点、项目初始化、测试命名、checkpoint 数据、反馈机制、Git 流程、Build 交付、效率提示）
+- [x] R1 发现 3 个问题：测试命名不规范、checkpoint 存类型描述、效率不足
+- [x] R2 验证修复：测试命名正确、checkpoint 存真实数据、决策节点自动标记
+- [x] R3 全量 build：13/13 节点 verified，37/37 测试通过，L2+L3 通过
+- [x] 总成本：Plan $4 + Execute $11 = $15（168 turns）
+
+## Phase 1.9: 端到端效能对比 ← 当前阶段
+
+- [ ] 框架 vs 原生 CC 对比测试（同一算法，比 $ 和一次通过率）
+- [ ] 根据对比结果调整 spec
 
 ## Phase 2: CC-Commander 集成
 
