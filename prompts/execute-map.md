@@ -11,6 +11,11 @@ CC 按算法地图逐节点实现代码的协议。用户输入 `/map build`，C
 5. **JSON 内容统一用中文**（与 Plan 阶段一致）
 6. **禁止 CC 读取 HTML 文件**——CC 只读 algorithm-map.json，用户看 HTML
 
+## 效率提示
+
+- **不要每次读全量 JSON**（可能 1000+ 行）。首次读一遍建立全局理解，之后只读当前节点的 `contents[node_id]` 和 `state.nodes[node_id]`
+- **Reviewer Task 的 prompt 自包含**：把 how 和文件内容直接写进 prompt，不让 Reviewer 再读文件
+
 ## 自动化流程
 
 ```python
@@ -65,17 +70,19 @@ def map_build(project_dir):
 6. git init（如果不是 git 仓库）+ .gitignore
 ```
 
-**测试文件组织**：
+**测试文件组织**（命名规则强制）：
 
 ```
 tests/
-├── conftest.py           # 公共 fixture（测试实例数据）
-├── test_{node_id}.py     # 每个 process 节点一个 L1 测试文件
-├── test_{region_id}.py   # 每个 region 一个 L2 测试文件
-└── test_e2e.py           # L3 端到端测试
+├── conftest.py               # 公共 fixture（测试实例数据）
+├── test_{node_id}.py         # L1：每个 process 节点一个（如 test_03_build_rmp.py）
+├── test_{region_id}.py       # L2：每个 region 一个（如 test_cg_loop.py）
+└── test_e2e.py               # L3：端到端测试
 ```
 
-每个 verify.core 项的 `cmd` 字段已指定了测试文件名和用例名，Builder 按此创建。
+- L1 测试文件**必须**命名为 `test_{node_id}.py`，即使 verify.core 的 cmd 字段写了别的名字
+- L2/L3 测试文件名按 verify.core 的 cmd 字段
+- 每个节点的 pre/post 条件也写入对应的 `test_{node_id}.py`
 
 ## 单节点循环
 
@@ -86,18 +93,22 @@ tests/
 2. 读 contents[node_id].how       → 理解怎么做
 3. 读上游 checkpoint               → 知道输入数据长什么样
 4. 写代码（按 code.files 路径）
-5. 保存 checkpoint：
+5. 保存 checkpoint（用测试实例跑出真实数据）：
    _checkpoints/<node_id>.json = {
      "node_id": "...",
      "input_from": "上游 node_id",
-     "output": { 本节点的输出数据 }
+     "output": { 用 conftest 测试实例跑出的真实输出数据 }
    }
 6. set_status(node_id, "implemented")
 ```
 
-**Checkpoint 是数据流的快照**，不是测试数据。它的作用：
-- 下游节点实现时可以直接读取上游输出，理解接口
-- 验证失败时，沿 checkpoint 链定位故障节点
+**Checkpoint 必须是真实数据**，不是类型描述。用 `conftest.py` 中的测试实例运行本节点代码，将实际输出保存为 checkpoint。例如：
+- 正确：`"dist": [[0,5,5,5],[5,0,3,3],[5,3,0,3],[5,3,3,0]]`
+- 错误：`"dist_shape": "(n+1, n+1)"`
+
+Checkpoint 的作用：
+- 下游节点实现时读取上游真实输出，理解接口和数据格式
+- 验证失败时，沿 checkpoint 链对比数据定位故障节点
 - 新对话恢复时，不必重跑已完成的节点
 
 ### 步骤 2：自检（Builder 跑 L1）
