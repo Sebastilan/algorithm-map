@@ -12,17 +12,18 @@
 
 ## 执行纪律
 
-**两阶段增量构建 JSON，不写散文再翻译。**
+**一口气执行 A1→B4，只在最后出图。不写散文再翻译。**
 
-| 阶段 | 做什么 | JSON 产物 | 结束动作 |
-|------|--------|----------|---------|
-| **Phase A** | 理解算法 → 节点方案 → 写 JSON | graph 完整 + contents 主体 + verify 留空 | 渲染器 URL → **用户审阅流程图** |
-| **Phase B** | 示例数据 → 接口 → 验证设计 → 校验 | verify 完整 + meta.test_instance 完整 | 校验通过 → **用户审阅完整地图** |
+| 步骤组 | 做什么 | JSON 产物 |
+|--------|--------|----------|
+| **A1-A4** | 理解算法 → 节点方案 → 写 JSON 骨架 | graph + contents + verify 留空 |
+| **B1-B4** | 示例数据 → 接口 → 验证设计 → 校验 | verify + test_instance 完整 |
 
 **核心原则**：
-- **增量写文件**：每阶段产物直接写入 JSON 文件。Phase B 读取 Phase A 写的文件继续工作，不依赖对话记忆
-- **对话从简**：对话中只输出简要说明（标注步骤号），详细内容直接进 JSON
-- **每阶段内连续执行不暂停**，阶段之间等待用户确认
+- **连续执行不暂停**：A1 到 B4 一口气跑完，中间不等用户确认。唯一停点：B4 校验通过后出图
+- **增量写文件**：A4 写 JSON 骨架，B1-B4 读文件补充验证，不依赖对话记忆
+- **对话从简**：对话中只输出步骤号 + 一行进展。禁止在对话中输出大段伪代码、方案表格、JSON 片段
+- **交付物是渲染器 URL**：用户看 HTML 流程图审阅，CC 读写 JSON。**禁止把 JSON 内容贴到对话中让用户看**
 
 **调研控制**：
 - **默认用自身知识**——CC 的训练数据覆盖绝大多数经典算法，直接用即可
@@ -37,39 +38,14 @@
 ### A1. 理解算法，输出伪代码
 
 - **输入**：对话上下文中的需求共识
-- **输出**：对话中输出伪代码（Python 风格，注释标注逻辑分组），标注 `=== A1 伪代码 ===`
-- 这是最重要的一步——伪代码是后续所有工作的基础
+- **输出**：对话中输出一行算法概要（几步、几层循环、关键模块），标注 `=== A1 ===`
+- 伪代码是后续节点分解的基础——在脑中想清楚，但**不在对话中输出完整伪代码**（直接写入各节点 `how` 字段）
 - 如果自身知识不足，拒绝编造臆想，可以网上搜索
-
-伪代码示例：
-
-```python
-def BPC(instance):
-    data = initialize(instance)
-    columns = initial_columns(data)
-    UB = greedy(data)
-
-    queue = [root_node]
-    while queue:                         # --- B&B 主循环 ---
-        node = queue.pop()
-        while True:                      # --- 列生成循环 ---
-            obj, x = solve_RMP(columns, node.bounds)
-            duals = extract_duals()
-            new_col = pricing(duals, data)
-            if new_col.rc >= 0: break    # CG 收敛
-            columns.add(new_col)
-        if is_integer(x):                # 整数解 → 更新上界
-            UB = min(UB, obj)
-        elif obj < UB:                   # 分数解 → 分支
-            children = branch(node, x)
-            queue.extend(children)
-    return best_solution
-```
 
 ### A2. 逐节点确定方案
 
 - **输入**：A1 的伪代码
-- **环境探查（必做）**：选型前先检查用户环境有什么可用工具，用 `pip show` / `which` / 版本检查等确认。例如：有 Gurobi 就不用 PuLP，有 GPU 就考虑加速。**禁止凭默认假设选型。**
+- **环境探查（必做，限 1 条命令）**：`pip list` 看全貌，根据结果选型。**禁止凭默认假设选型，也禁止逐个 `pip show` 挨个查。**
 - **方法**：结合环境探查结果和自身知识，为每个节点选定方案。只在确实不知道关键细节时才搜索
 - **输出**：对话中简要列出各节点的选定方案和一句话理由，标注 `=== A2 节点方案 ===`
 - 不要在对话中输出详细伪代码——详细实现直接写入 JSON 的 contents.how
@@ -109,7 +85,7 @@ def BPC(instance):
 
 **填写算法蓝图**（`meta.blueprint`）：
 - `core_idea`：2-3 句话说清算法的核心逻辑
-- `data_flow`：模块间数据流（如"主问题松弛 → CG → 定价 → 列入库 → 分支 → 回到 CG"）
+- `data_flow`：模块间数据流向
 - `key_assumptions`：算法成立的前提条件
 
 **A4 自检**：
@@ -118,19 +94,13 @@ def BPC(instance):
 - regions 中的 node id 都存在，每个 region 有 `id` 和 `semantic`
 - `meta.blueprint` 三个字段均已填写
 
-**收尾**：写入 JSON，启动渲染器，输出 URL：
-
-```
-=== Phase A 完成 ===
-渲染器 URL: http://localhost:8765/renderer/render.html?src=...
-请审阅流程图结构，确认后继续 Phase B。
-```
+**收尾**：写入 JSON 后直接进入 B1，不暂停。
 
 ---
 
 ## Phase B：验证
 
-**从文件读取 Phase A 生成的 JSON**（不依赖对话记忆）。
+**读取 A4 写入的 JSON 文件**继续工作（不依赖对话记忆）。
 
 ### B1. 设计数据结构 + 构造示例数据
 
@@ -172,7 +142,9 @@ def BPC(instance):
 | 有交叉约束 | 子模块间通过共享状态耦合 |
 | 可独立验证 | 存在不经过内部节点的独立验证路径 |
 
-**普通节点/region 不写 core 测试**，只写 post 断言（`check` 表达式）。出错时 CC 靠报错信息自行修复。
+**将判定结果写入 JSON**：节点 `contents.xx.critical = true/false`，region `graph.regions[].critical = true/false`。B4 校验时从 JSON 读取，不依赖对话记忆。
+
+**普通节点/region（`critical: false`）不写 core 测试**，只写 post 断言（`check` 表达式）。出错时 CC 靠报错信息自行修复。
 
 #### 第二步：按关键性设计验证
 
@@ -192,9 +164,7 @@ def BPC(instance):
 
 #### 第三步：关键 region 的 L2 设计（必做三步）
 
-1. **一句话总结 region 语义** → 写入 `region.semantic`。例如：
-   - "列生成循环 = 求解集合划分 LP 松弛"
-   - "ALNS 主循环 = 启发式搜索可行解空间"
+1. **一句话总结 region 语义** → 写入 `region.semantic`（描述 region 的输入→输出等价关系）
 
 2. **找独立验证路径**：有没有一种**不经过 region 内部节点**的方式得到同样结果？
    - 精确算法：用独立求解器直接求解（如 Gurobi 直接解完整 LP）
@@ -212,9 +182,9 @@ def BPC(instance):
 
 | 层级 | 策略 | 示例 |
 |------|------|------|
-| L1 | 示例数据 → 精确比对期望值 | solve_RMP → obj == 51.0 |
-| L2 | 独立求解器交叉验证 | CG 循环 LP 值 == Gurobi LP 值 |
-| L3 | = 标准 benchmark 已知最优 | BPC(E-n13-k4) == 247 |
+| L1 | 示例数据 → 精确比对期望值 | |
+| L2 | 独立求解器交叉验证 | |
+| L3 | 标准 benchmark 已知最优 | |
 
 **随机/启发式算法**：
 
@@ -222,7 +192,7 @@ def BPC(instance):
 |------|------|------|
 | L1 | **固定种子 → 确定化 → 精确比对**。用极端参数消除随机选择（如 p=100 使概率选择确定化） | worst_removal(p=100) 移除 cost 最大的客户 |
 | L2 | **统计性质测试**：分布、收敛趋势、单调性 | 轮盘赌 weights=[1,3,1]，10000 次采样，idx=1 频率 ∈ [0.55, 0.65] |
-| L3 | **多次运行统计**：N 次运行报告 best/avg/worst。阈值需论证（引用文献 gap 或预实验） | ALNS(E-n13-k4) 10 次，best ≤ 255，avg ≤ 265 |
+| L3 | **多次运行统计**：N 次运行报告 best/avg/worst。阈值需论证（引用文献 gap 或预实验） | |
 
 **数值迭代算法**：
 
@@ -247,16 +217,18 @@ def BPC(instance):
 1. **JSON 合法**：json.load 正常解析
 2. **边引用完整**：所有 edge from/to 对应存在的 node id
 3. **Post→Pre 衔接**：逐条边检查上游 post 能保证下游 pre
-4. **关键点有 core**：所有标记为关键的节点 verify.core 至少 1 项（L1）；所有标记为关键的 region verify.core 至少 1 项（L2）。普通节点/region 至少有 post 断言
+4. **关键点有 core**：所有 `critical: true` 的节点 verify.core 至少 1 项（L1）；所有 `critical: true` 的 region verify.core 至少 1 项（L2）。`critical: false` 的至少有 post 断言
 5. **State 完整**：所有 process 节点在 state.nodes 中有条目
 
-校验通过后，更新渲染器文件，输出 URL：
+校验通过后，启动渲染器，输出 URL：
 
 ```
-=== Phase B 完成 ===
+=== Plan 完成 ===
 渲染器 URL: http://localhost:8765/renderer/render.html?src=...
 请审阅完整地图（节点方案 + 验证设计）。
 ```
+
+**这是 `/map plan` 的唯一交付点。** 之前所有步骤连续执行，到这里才停下等用户。
 
 ---
 
@@ -274,6 +246,7 @@ def BPC(instance):
     "edges": [{ "from": "start", "to": "01_xxx" }],
     "regions": [{
       "id": "main_loop", "label": "主循环", "semantic": "一句话描述 region 的输入→输出等价关系",
+      "critical": true,
       "nodes": ["01_xxx"],
       "verify": { "pre": [], "core": [{"desc": "L2 交叉验证", "level": "L2", "method": "独立路径验证", "cmd": "pytest ..."}], "post": [] }
     }]
@@ -281,9 +254,10 @@ def BPC(instance):
   "contents": {
     "01_xxx": {
       "title": "", "overview": "", "how": "",
+      "critical": false,
       "verify": {
         "pre":  [{"desc": "条件描述", "check": "断言表达式"}],
-        "core": [{"desc": "验证描述", "level": "L1", "method": "验证方法", "cmd": "pytest test_xxx.py -k 'test_name'"}],
+        "core": [],
         "post": [{"desc": "条件描述", "check": "断言表达式"}]
       },
       "code": { "files": [], "snippet": "" }, "refs": "", "pitfalls": ""
@@ -312,7 +286,7 @@ def BPC(instance):
 
 | 类型 | 描述 | 影响范围 | 示例 |
 |------|------|---------|------|
-| **接口不变** | 只改内部实现，pre/post 不变 | 仅当前节点 | greedy_insertion → regret-3 insertion |
+| **接口不变** | 只改内部实现，pre/post 不变 | 仅当前节点 | |
 | **接口变更** | post 条件变化，影响下游 pre | 当前节点 + 下游受影响节点 | 增加时间窗 → Data 结构变化 → 多节点连锁 |
 | **新增节点** | 添加新 process 节点 | 新节点 + 相邻节点的边调整 | 新增 cluster_removal 算子 |
 
