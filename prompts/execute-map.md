@@ -8,19 +8,22 @@ CC 按算法地图逐节点实现代码的协议。用户输入 `/map build`，C
 2. **三方制衡**：Planner 定标准（verify.core）、Builder 写代码跑数值、Reviewer 审代码逻辑
 3. **链式数据流**：上游 checkpoint 就是下游输入，自动形成测试链
 4. **断点续做**：新 CC 窗口读 JSON 即可从上次断点继续，无需人工引导
+5. **JSON 内容统一用中文**（与 Plan 阶段一致）
+6. **禁止 CC 读取 HTML 文件**——CC 只读 algorithm-map.json，用户看 HTML
 
 ## 自动化流程
 
 ```python
 def map_build(project_dir):
     map_json = read("algorithm-map.json")
+    setup_project(project_dir, map_json)   # 项目初始化（见下文）
     nodes = scan_state(map_json)
 
     if all_verified(nodes):
         print("Build 已完成")
         return
 
-    for node in topological_sort(process_nodes):
+    for node in topological_sort(process_nodes):  # 只遍历 process 节点
         if node.status == "verified":
             continue
 
@@ -30,7 +33,7 @@ def map_build(project_dir):
         review_result = code_review(node)  # Reviewer 子 Agent（Sonnet）审代码
         if review_result.flagged:
             fix_and_retry(node)            # 改代码 → 重新自检 → 重新审查
-        set_status(node, "verified")
+        mark_verified(node)                # 标记 verified + 关联 decision 节点
 
         # region 完成 → L2
         if region_complete(node):
@@ -38,7 +41,41 @@ def map_build(project_dir):
 
     # 全部完成 → L3
     run_L3(benchmark)
+    deliver()                              # 交付（见"Build 完成交付"）
 ```
+
+### 决策节点处理
+
+决策节点（`type: "decision"`）是流程控制（if/while），**不单独实现、不单独建文件**。
+
+- 决策逻辑嵌入相邻 process 节点的代码中（如 `06_has_neg_rc` 的判断写在 CG 循环里）
+- 决策节点没有 checkpoint
+- 决策节点的 `how` 描述条件判断逻辑，Builder 在实现相关 process 节点时参照
+- **自动标记 verified**：当一个 process 节点 verified 后，CC 检查其直接下游的 decision 节点——若该 decision 节点的所有入边 process 节点都已 verified，则自动标记该 decision 节点为 verified
+- Region 进度只计 process 节点（decision 节点不算入 X/Y）
+
+## 项目初始化（首次 build 前执行一次）
+
+```
+1. 创建 map_utils.py（模板见"状态管理"段）
+2. 创建 tests/ 目录
+3. 创建 _checkpoints/ 目录
+4. 安装依赖（如 contents 中提到的库），写入 requirements.txt
+5. 用 meta.test_instance 中的手算实例创建 tests/conftest.py（公共 fixture）
+6. git init（如果不是 git 仓库）+ .gitignore
+```
+
+**测试文件组织**：
+
+```
+tests/
+├── conftest.py           # 公共 fixture（测试实例数据）
+├── test_{node_id}.py     # 每个 process 节点一个 L1 测试文件
+├── test_{region_id}.py   # 每个 region 一个 L2 测试文件
+└── test_e2e.py           # L3 端到端测试
+```
+
+每个 verify.core 项的 `cmd` 字段已指定了测试文件名和用例名，Builder 按此创建。
 
 ## 单节点循环
 
@@ -304,26 +341,53 @@ def save_checkpoint(node_id, output_data):
 4. 继续流程（无需人工引导）
 ```
 
+## Build 完成交付
+
+L3 通过后：
+
+```bash
+# 1. 生成 standalone HTML
+python C:/Users/ligon/CCA/algorithm-map/tools/export_standalone.py algorithm-map.json
+
+# 2. 输出完成摘要
+=== Build 完成 ===
+节点: {verified}/{total} verified
+测试: pytest --tb=short 结果摘要
+[SHARE:algorithm-map.html的绝对路径]
+
+# 3. git add + commit + push
+```
+
+## Git 工作流
+
+| 时机 | 动作 |
+|------|------|
+| 项目初始化完成 | `git add -A && git commit -m "init: project scaffold"` |
+| 每个 process 节点 verified | `git add src/ tests/ algorithm-map.json && git commit -m "feat: {node_id} verified"` |
+| Region L2 通过 | `git commit -m "milestone: {region_id} L2 passed"` |
+| L3 通过 | `git commit -m "milestone: L3 benchmark passed" && git push` |
+
 ## 反馈集成
 
-用户可能通过渲染器提交批注（`.feedback.md`）：
-
-```
-检查 .feedback.md → 按 [node:id] 定位 → 处理反馈 → 清空文件
-```
+用户通过审阅系统（`[SHARE:]` 链接）提交批注。批注会作为消息发回给 CC，按 `[node:id]` 定位到具体节点处理。
 
 ## 速查
 
 ```
 /map build 自动流程：
-  读 JSON → 拓扑序 → 逐节点（实现 → L1 自检 → Reviewer 审代码 → verified）
-  → region 完成跑 L2 → 全部完成跑 L3
+  初始化项目 → 读 JSON → 拓扑序 process 节点
+  → 逐节点（实现 → L1 自检 → Reviewer 审代码 → verified → 关联 decision 节点）
+  → region 完成跑 L2 → 全部完成跑 L3 → 交付
 
-单节点：读 how → 读 checkpoint → 写代码 → 自检 L1 → Reviewer（Sonnet）→ verified
+单节点：读 how → 读 checkpoint → 写代码 → 写测试 → 自检 L1 → Reviewer（Sonnet）→ verified
+
+决策节点：不单独实现，逻辑嵌入 process 节点，入边 process 全部 verified 后自动标记
 
 三方制衡：Planner 定标准 / Builder 写代码跑数值 / Reviewer 审代码逻辑
 
 诊断：沿 checkpoint 链定位故障节点 → 修复 → 重验
 
 Plan 变更：内容层直接改，结构层走 /map upgrade
+
+Git：每节点 verified 一次 commit，L3 通过后 push
 ```
