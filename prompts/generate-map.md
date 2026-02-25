@@ -29,8 +29,13 @@
 **调研控制**：
 - **默认用自身知识**——CC 的训练数据覆盖绝大多数经典算法，直接用即可
 - **不要"为了确认"而调研**——只在"确实不知道关键实现细节"时才搜索
-- **禁止启动 Task 子 Agent 做调研**——如需搜索，在主对话中用 WebSearch，单次聚焦，3 分钟内完成
+- **禁止启动 Task 做调研**——如需搜索，在主对话中用 WebSearch，单次聚焦，3 分钟内完成
 - 如果用户提供了论文/参考资料，直接读取，不要自己去搜
+
+**并行策略**：
+- Phase B 的 B1/B2/B3 无依赖关系，**必须用 Task 工具并行启动**（省 token、省时间）
+- 每个 Task 读 JSON、返回结果文本；**主 CC 统一合并写入 JSON**，避免并发写冲突
+- Phase A 保持串行（步骤间有依赖）
 
 ---
 
@@ -95,31 +100,44 @@
 - regions 中的 node id 都存在，每个 region 有 `id` 和 `semantic`
 - `meta.blueprint` 三个字段均已填写
 
-**收尾**：写入 JSON 后直接进入 B1，不暂停。
+**收尾**：写入 JSON 后立即并行启动 B1/B2/B3（见 Phase B）。
 
 ---
 
-## Phase B：验证
+## Phase B：验证（并行）
 
-**读取 A4 写入的 JSON 文件**继续工作（不依赖对话记忆）。
+**A4 写入 JSON 后，同时启动 3 个 Task**。每个 Task 读取 `algorithm-map.json`，返回结果。主 CC 合并写入 JSON 后进入 B4。
 
-### B1. 设计数据结构 + 构造示例数据
+```
+A4 完成 → 同时启动 Task B1 + Task B2 + Task B3
+           → 全部返回后 → 主 CC 合并写入 JSON → B4
+```
 
-- 设计节点间传递的数据结构，对话中简要输出
+### B1. 构造示例数据（Task 1）
+
+**Task prompt 必须包含**：算法地图 JSON 的路径、算法类型（A3 结论）。
+
+Task 职责：
 - 构造最小规模示例数据：
   - **必须能触发所有分支路径**——逐个 decision 节点检查，确保示例数据能让每个分支都被走到。如果单个示例不够，构造多个互补示例
   - 有已知正确答案（手算 / 枚举 / 标准算例）
   - 优先用行业标准测试数据，没有再自造
-- 写入 JSON `meta.test_instance`（Markdown 格式）
+- **返回**：test_instance 的 Markdown 文本
 
-### B2. 定义接口
+### B2. 定义接口（Task 2）
 
-为每个 process/decision 节点填写 `verify.pre` 和 `verify.post`：
+**Task prompt 必须包含**：算法地图 JSON 的路径。
+
+Task 职责：
+- 为每个 process/decision 节点设计 `verify.pre` 和 `verify.post`
 - 格式：`{"desc": "条件描述", "check": "断言表达式"}`
 - **每个节点至少 1 条 post 断言**（包括 decision 节点——断言判定条件本身的合法性）
 - 逐条边检查：上游 post 能保证下游 pre
+- **返回**：JSON 对象 `{node_id: {pre: [...], post: [...]}, ...}`
 
-### B3. 识别关键点 + 设计验证
+### B3. 识别关键点 + 设计验证（Task 3）
+
+**Task prompt 必须包含**：算法地图 JSON 的路径、算法类型（A3 结论）、下方完整的关键性标准和验证设计指南。
 
 **不是每个环节都需要写测试。** 先识别关键点，再按关键性分级设计验证。
 
@@ -214,9 +232,19 @@
 | L2 | 数据完整性检查 | 合并后行数 == 左表行数 |
 | L3 | 端到端输出与参考输出比对 | 最终特征矩阵 == 参考输出 |
 
+**B3 Task 返回**：JSON 对象 `{nodes: {node_id: {critical: bool, core: [...]}}, regions: {region_id: {critical: bool, semantic: "...", core: [...]}}}`
+
+### B-merge. 合并写入 JSON
+
+三个 Task 全部返回后，主 CC **一次性合并**写入 `algorithm-map.json`：
+- `meta.test_instance` ← B1 返回的 Markdown 文本
+- `contents[*].verify.pre/post` ← B2 返回的接口断言
+- `contents[*].critical` + `contents[*].verify.core` ← B3 返回的关键性 + 测试
+- `graph.regions[*].critical` + `graph.regions[*].verify` ← B3 返回的 region 验证
+
 ### B4. 校验 + 出图
 
-更新 JSON 文件后，执行校验：
+合并写入后，执行校验：
 
 1. **JSON 合法**：json.load 正常解析
 2. **边引用完整**：所有 edge from/to 对应存在的 node id
