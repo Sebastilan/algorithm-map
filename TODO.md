@@ -39,7 +39,26 @@
 - [x] Plan 变更规则：内容层 Builder 可调，结构层走 `/map upgrade`
 - [x] 同步更新 `/map` 技能副本（references/ + SKILL.md）
 
-## Phase 2: CC-Commander 集成 ← 下一阶段
+## Phase 1.7: Plan 技能优化（CVRP B&P 测试驱动）✅
+
+3 轮 CVRP Branch-and-Price 测试迭代，plan 质量和流程均已达标。
+
+- [x] 移除 BPC/CVRP 硬编码示例，提升 CC 友好度
+- [x] B4 交付：渲染器 URL → standalone HTML + `[SHARE:]` 审阅链接
+- [x] export_standalone.py：JSON 嵌入 render.html 生成自包含 HTML
+- [x] L3 位置规则：处理终端节点无 post 的情况
+- [x] L2/L3 边界：禁止在 region L2 写端到端验证
+- [x] 决策节点：require post assertions
+- [x] JSON 内容统一用中文 + 禁止 CC 读取 HTML 文件
+- [x] B1/B2/B3 并行化：Task 工具并行启动，主 CC 合并写入
+- [x] 测试结果：28 项核心验证（20 L1 + 7 L2 + 1 L3），2 组互补手算实例
+
+## Phase 1.8: Execute 技能优化 ← 当前阶段
+
+- [ ] 分析 `execute-map.md` 现有问题（基于 BPC 实战经验）
+- [ ] 测试并迭代优化
+
+## Phase 2: CC-Commander 集成
 
 - [ ] PM 路由：识别复杂算法任务
 - [ ] Terminal 新增 map_planning 状态
