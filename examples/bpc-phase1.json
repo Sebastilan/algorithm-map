@@ -18,53 +18,174 @@
     },
     "test_instance": "**T3 基准实例**（3 客户）\n- dist = [[0,3,4,5],[3,0,5,4],[4,5,0,3],[5,4,3,0]]\n- demands = [0,2,3,2], capacity = 4\n- LP/IP 最优 = 20, 最终对偶 π = (6,8,6)\n\n**验证实例**\n| 实例 | 客户数 | 标准最优 | 我们求解 | Gap |\n|------|--------|---------|---------|-----|\n| P-n16-k8 | 15 | 450 | 450 | 0% |\n| E-n13-k4 | 12 | 290 | 290 | 9% |\n| P-n19-k2 | 18 | 212 | 219 | 18% |"
   },
-
   "graph": {
     "nodes": [
-      { "id": "start",              "label": "开始",             "type": "terminal" },
-      { "id": "01_initialize",      "label": "1. 初始化",        "sub": "建模 + 初始列",    "type": "process" },
-      { "id": "02_solve_rmp",       "label": "2. 求解 RMP",      "sub": "LP 松弛",          "type": "process" },
-      { "id": "03_extract_duals",   "label": "3. 提取对偶 π",    "sub": "影子价格",          "type": "process" },
-      { "id": "04_pricing",         "label": "4. 定价 ESPPRC",   "sub": "资源约束最短路",    "type": "process" },
-      { "id": "05_column_check",    "label": "有负 RC 列？",     "sub": "",                  "type": "decision" },
-      { "id": "06_integrality_check","label": "LP 解是整数？",   "sub": "",                  "type": "decision" },
-      { "id": "07_bound_check",     "label": "LB ≥ UB？",       "sub": "",                  "type": "decision" },
-      { "id": "08_branch",          "label": "8. 分支",          "sub": "边分支策略",        "type": "process" },
-      { "id": "09_terminate",       "label": "输出最优解",       "type": "terminal" }
+      {
+        "id": "start",
+        "label": "开始",
+        "type": "terminal"
+      },
+      {
+        "id": "01_initialize",
+        "label": "1. 初始化",
+        "sub": "建模 + 初始列",
+        "type": "process"
+      },
+      {
+        "id": "02_solve_rmp",
+        "label": "2. 求解 RMP",
+        "sub": "LP 松弛",
+        "type": "process"
+      },
+      {
+        "id": "03_extract_duals",
+        "label": "3. 提取对偶 π",
+        "sub": "影子价格",
+        "type": "process"
+      },
+      {
+        "id": "04_pricing",
+        "label": "4. 定价 ESPPRC",
+        "sub": "资源约束最短路",
+        "type": "process"
+      },
+      {
+        "id": "05_column_check",
+        "label": "有负 RC 列？",
+        "sub": "",
+        "type": "decision"
+      },
+      {
+        "id": "06_integrality_check",
+        "label": "LP 解是整数？",
+        "sub": "",
+        "type": "decision"
+      },
+      {
+        "id": "07_bound_check",
+        "label": "LB ≥ UB？",
+        "sub": "",
+        "type": "decision"
+      },
+      {
+        "id": "08_branch",
+        "label": "8. 分支",
+        "sub": "边分支策略",
+        "type": "process"
+      },
+      {
+        "id": "09_terminate",
+        "label": "输出最优解",
+        "type": "terminal"
+      }
     ],
     "edges": [
-      { "from": "start",              "to": "01_initialize" },
-      { "from": "01_initialize",      "to": "02_solve_rmp" },
-      { "from": "02_solve_rmp",       "to": "03_extract_duals" },
-      { "from": "03_extract_duals",   "to": "04_pricing" },
-      { "from": "04_pricing",         "to": "05_column_check" },
-      { "from": "05_column_check",    "to": "02_solve_rmp",        "label": "是（加入新列）" },
-      { "from": "05_column_check",    "to": "06_integrality_check","label": "否（CG 收敛）" },
-      { "from": "06_integrality_check","to": "09_terminate",       "label": "是（更新 UB）" },
-      { "from": "06_integrality_check","to": "07_bound_check",     "label": "否" },
-      { "from": "07_bound_check",     "to": "09_terminate",        "label": "是（剪枝）" },
-      { "from": "07_bound_check",     "to": "08_branch",           "label": "否" },
-      { "from": "08_branch",          "to": "02_solve_rmp",        "label": "子节点入队" }
+      {
+        "from": "start",
+        "to": "01_initialize"
+      },
+      {
+        "from": "01_initialize",
+        "to": "02_solve_rmp"
+      },
+      {
+        "from": "02_solve_rmp",
+        "to": "03_extract_duals"
+      },
+      {
+        "from": "03_extract_duals",
+        "to": "04_pricing"
+      },
+      {
+        "from": "04_pricing",
+        "to": "05_column_check"
+      },
+      {
+        "from": "05_column_check",
+        "to": "02_solve_rmp",
+        "label": "是（加入新列）"
+      },
+      {
+        "from": "05_column_check",
+        "to": "06_integrality_check",
+        "label": "否（CG 收敛）"
+      },
+      {
+        "from": "06_integrality_check",
+        "to": "09_terminate",
+        "label": "是（更新 UB）"
+      },
+      {
+        "from": "06_integrality_check",
+        "to": "07_bound_check",
+        "label": "否"
+      },
+      {
+        "from": "07_bound_check",
+        "to": "09_terminate",
+        "label": "是（剪枝）"
+      },
+      {
+        "from": "07_bound_check",
+        "to": "08_branch",
+        "label": "否"
+      },
+      {
+        "from": "08_branch",
+        "to": "02_solve_rmp",
+        "label": "子节点入队"
+      }
     ],
     "regions": [
       {
         "id": "cg_loop",
         "label": "Column Generation Loop",
         "semantic": "**列生成循环**是 BPC 的内层核心。\n\n**输入**：RMP（含当前列集合）+ 分支约束\n**输出**：收敛的 LP 最优解 $z^*_{LP}$ + 对应的 $\\lambda^*$\n\n**等价关系**：CG 收敛后的 $z^*_{LP}$ 等价于在**全部**指数级列上求解 LP 松弛的最优值（Dantzig-Wolfe 分解定理）。\n\n**循环逻辑**：\n1. 求解 RMP → 获得对偶 $\\pi$\n2. 用 $\\pi$ 引导 ESPPRC 寻找负 RC 列\n3. 有负 RC 列 → 加入 RMP → 回到 1\n4. 无负 RC 列 → LP 最优，退出循环\n\n**收敛保证**：每次加入负 RC 列后 LP 目标严格改善（或不变），有限列 → 有限步收敛。",
-        "nodes": ["02_solve_rmp", "03_extract_duals", "04_pricing", "05_column_check"],
+        "nodes": [
+          "02_solve_rmp",
+          "03_extract_duals",
+          "04_pricing",
+          "05_column_check"
+        ],
         "verify": {
           "pre": [
-            { "desc": "RMP 含可行初始列（所有客户被覆盖）", "check": "all customers covered by initial columns" },
-            { "desc": "分支约束已正确注入 RMP", "check": "forced/forbidden edges applied" }
+            {
+              "desc": "RMP 含可行初始列（所有客户被覆盖）",
+              "check": "all customers covered by initial columns"
+            },
+            {
+              "desc": "分支约束已正确注入 RMP",
+              "check": "forced/forbidden edges applied"
+            }
           ],
           "core": [
-            { "desc": "CG 收敛后 z*_LP 等于 SP-LP 全局最优", "level": "L2", "method": "与 Gurobi 直接求 SP-LP 对比（小实例）", "cmd": "pytest src/python/tests/test_cg_convergence.py" },
-            { "desc": "CG 迭代次数合理（不无限循环）", "level": "L2", "method": "设 max_iter=200，正常实例 <50 轮" },
-            { "desc": "T3 实例 CG 收敛到 LP=20", "level": "L1", "method": "枚举 T3 全部可行路径建 SP 模型（set covering LP），Gurobi 求解 LP 松弛 = 20。CG 收敛后 z*_LP 应与此一致。", "cmd": "pytest src/python/tests/test_cg_convergence.py::test_t3_converge" }
+            {
+              "desc": "CG 收敛后 z*_LP 等于 SP-LP 全局最优",
+              "level": "L2",
+              "method": "与 Gurobi 直接求 SP-LP 对比（小实例）",
+              "cmd": "pytest src/python/tests/test_cg_convergence.py"
+            },
+            {
+              "desc": "CG 迭代次数合理（不无限循环）",
+              "level": "L2",
+              "method": "设 max_iter=200，正常实例 <50 轮"
+            },
+            {
+              "desc": "T3 实例 CG 收敛到 LP=20",
+              "level": "L1",
+              "method": "枚举 T3 全部可行路径建 SP 模型（set covering LP），Gurobi 求解 LP 松弛 = 20。CG 收敛后 z*_LP 应与此一致。",
+              "cmd": "pytest src/python/tests/test_cg_convergence.py::test_t3_converge"
+            }
           ],
           "post": [
-            { "desc": "所有列的 RC ≥ 0（无遗漏负 RC 列）", "check": "最后一轮 pricing 返回空列表" },
-            { "desc": "z*_LP 是当前 B&B 节点的有效下界", "check": "z_LP <= IP_optimal" }
+            {
+              "desc": "所有列的 RC ≥ 0（无遗漏负 RC 列）",
+              "check": "最后一轮 pricing 返回空列表"
+            },
+            {
+              "desc": "z*_LP 是当前 B&B 节点的有效下界",
+              "check": "z_LP <= IP_optimal"
+            }
           ]
         }
       },
@@ -72,270 +193,617 @@
         "id": "bnb",
         "label": "Branch-and-Bound",
         "semantic": "**分支定界框架**是 BPC 的外层搜索。\n\n**输入**：初始 RMP + 初始上界 $UB = +\\infty$\n**输出**：全局最优整数解（或证明无更优解）\n\n**搜索逻辑**：\n1. 从 B&B 队列取出一个节点\n2. 在该节点上运行**列生成循环**得到 LP 最优\n3. LP 解是整数？→ 更新 UB\n4. LP 解非整数？→ 界检查（$LB \\ge UB$ 则剪枝）→ 分支创建子节点\n5. 重复直到队列为空\n\n**DFS 策略**：我们用栈（后进先出）实现深度优先搜索，优先探索 forced 分支（更可能找到可行整数解，快速降低 UB）。\n\n**关键加速**：整数代价剪枝 $\\lceil LB \\rceil \\ge UB$ + Restricted MIP 启发式（root CG 后 IP 求解快速获得初始 UB）。",
-        "nodes": ["02_solve_rmp", "03_extract_duals", "04_pricing", "05_column_check", "06_integrality_check", "07_bound_check", "08_branch"],
+        "nodes": [
+          "02_solve_rmp",
+          "03_extract_duals",
+          "04_pricing",
+          "05_column_check",
+          "06_integrality_check",
+          "07_bound_check",
+          "08_branch"
+        ],
         "verify": {
           "pre": [
-            { "desc": "初始列已生成，RMP 可行", "check": "RMP initialized with feasible columns" }
+            {
+              "desc": "初始列已生成，RMP 可行",
+              "check": "RMP initialized with feasible columns"
+            }
           ],
           "core": [
-            { "desc": "P-n16-k8 精确求解 cost=450, gap=0%", "level": "L3", "method": "端对端测试", "cmd": "pytest src/python/tests/test_e2e.py::test_pn16k8" },
-            { "desc": "E-n13-k4 找到最优解 290", "level": "L3", "method": "端对端测试" },
-            { "desc": "所有剪枝节点满足 LB ≥ UB", "level": "L2", "method": "B&B 日志审计" },
-            { "desc": "最终解通过 checker 验证（容量+覆盖+成本）", "level": "L1", "method": "checker.check_solution()", "cmd": "pytest src/python/tests/test_checker.py" }
+            {
+              "desc": "P-n16-k8 精确求解 cost=450, gap=0%",
+              "level": "L3",
+              "method": "端对端测试",
+              "cmd": "pytest src/python/tests/test_e2e.py::test_pn16k8"
+            },
+            {
+              "desc": "E-n13-k4 找到最优解 290",
+              "level": "L3",
+              "method": "端对端测试"
+            },
+            {
+              "desc": "所有剪枝节点满足 LB ≥ UB",
+              "level": "L2",
+              "method": "B&B 日志审计"
+            },
+            {
+              "desc": "最终解通过 checker 验证（容量+覆盖+成本）",
+              "level": "L1",
+              "method": "checker.check_solution()",
+              "cmd": "pytest src/python/tests/test_checker.py"
+            }
           ],
           "post": [
-            { "desc": "B&B 队列为空（所有节点已处理或剪枝）", "check": "len(queue) == 0" },
-            { "desc": "UB = 全局最优整数解", "check": "UB == IP_optimal (if proved)" }
+            {
+              "desc": "B&B 队列为空（所有节点已处理或剪枝）",
+              "check": "len(queue) == 0"
+            },
+            {
+              "desc": "UB = 全局最优整数解",
+              "check": "UB == IP_optimal (if proved)"
+            }
           ]
         }
       }
     ]
   },
-
   "contents": {
     "01_initialize": {
       "title": "初始化",
-      "overview": "读入 CVRP 实例数据，构造初始可行列（路径），建立限制主问题 RMP。\n\n**输入**：CVRP 实例 — 客户坐标、需求量 $q_i$、车辆容量 $Q$、距离矩阵 $c_{ij}$\n\n**输出**：\n- 限制主问题 RMP（含初始列集合 $\\Omega'$）\n- 初始上界 $UB = +\\infty$\n- B&B 队列（仅含根节点）\n\n**RMP** 是 MP 的松弛版本：只包含 $\\Omega' \\subset \\Omega$ 的子集列，且 $\\lambda$ 松弛为连续变量 $\\lambda_r \\ge 0$。",
-      "model": "### 主问题 (MP) — Set Covering\n\n**集合与参数**\n- $N = \\{1, \\ldots, n\\}$：客户集合\n- $\\Omega$：所有可行路径（depot 出发、满足容量 $Q$、depot 结束）的集合\n- $c_r$：路径 $r$ 的总距离\n- $a_{ir} \\in \\{0,1\\}$：路径 $r$ 是否经过客户 $i$\n\n$$\\begin{array}{llll}\n\\min & \\displaystyle\\sum_{r \\in \\Omega} c_r \\lambda_r & & \\text{(1) 总距离最小} \\\\[0.8em]\n\\text{s.t.} & \\displaystyle\\sum_{r \\in \\Omega} a_{ir} \\lambda_r \\ge 1 & \\forall i \\in N & \\text{(2) 每客户至少覆盖一次} \\\\[0.8em]\n& \\lambda_r \\in \\{0, 1\\} & \\forall r \\in \\Omega & \\text{(3) 路径选或不选}\n\\end{array}$$\n\n**验证用途**：小实例（n≤8）可枚举 $\\Omega$ 全部可行路径，建此 MIP 用 Gurobi 求解，LP 松弛 = CG 收敛值，IP 最优 = BPC 最终解。",
-      "how": "### 伪代码\n\n```\nfunction Initialize(instance):\n    N, Q, q, c = parse_instance(instance)\n\n    # 生成初始列：每客户单独一条路径\n    initial_columns = []\n    for i in N:\n        route = [0, i, 0]          # depot -> i -> depot\n        cost = c[0][i] + c[i][0]\n        initial_columns.append((route, cost))\n\n    RMP = build_rmp(N, initial_columns)\n    UB = +infinity\n    queue = [RootNode(RMP)]\n    return RMP, UB, queue\n```\n\n### 关键步骤\n\n1. **读入实例**：解析 CVRPLIB 标准格式（.vrp 文件）\n2. **生成初始列**：每个客户单独配一辆车（一定可行但成本高）\n3. **建 RMP**：目标函数 $\\min \\sum c_r \\lambda_r$，约束为集合覆盖 $\\ge 1$\n4. **初始化 B&B 队列**：放入根节点，$UB = +\\infty$\n\n**为什么需要初始列**：没有初始列 → RMP 不可行 → 无法提取对偶值 → 列生成无法运转。",
+      "overview": "读入 CVRP 实例数据，构造初始可行列（路径），建立限制主问题 RMP。\n\n**输入**：CVRP 实例 — 客户坐标、需求量 $q_i$、车辆容量 $Q$、距离矩阵 $c_{ij}$\n\n**输出**：\n- 限制主问题 RMP（含初始列集合 $\\Omega'$）\n- 初始上界 $UB = +\\infty$\n- B&B 队列（仅含根节点）\n\n**RMP** 是 MP 的松弛版本：只包含 $\\Omega' \\subset \\Omega$ 的子集列，且 $\\lambda$ 松弛为连续变量 $\\lambda_r \\ge 0$。\n\n### 主问题 (MP) — Set Covering\n\n**集合与参数**\n- $N = \\{1, \\ldots, n\\}$：客户集合\n- $\\Omega$：所有可行路径（depot 出发、满足容量 $Q$、depot 结束）的集合\n- $c_r$：路径 $r$ 的总距离\n- $a_{ir} \\in \\{0,1\\}$：路径 $r$ 是否经过客户 $i$\n\n$$\\begin{array}{llll}\n\\min & \\displaystyle\\sum_{r \\in \\Omega} c_r \\lambda_r & & \\text{(1) 总距离最小} \\\\[0.8em]\n\\text{s.t.} & \\displaystyle\\sum_{r \\in \\Omega} a_{ir} \\lambda_r \\ge 1 & \\forall i \\in N & \\text{(2) 每客户至少覆盖一次} \\\\[0.8em]\n& \\lambda_r \\in \\{0, 1\\} & \\forall r \\in \\Omega & \\text{(3) 路径选或不选}\n\\end{array}$$\n\n**验证用途**：小实例（n≤8）可枚举 $\\Omega$ 全部可行路径，建此 MIP 用 Gurobi 求解，LP 松弛 = CG 收敛值，IP 最优 = BPC 最终解。",
       "verify": {
         "pre": [
-          { "desc": "实例文件格式正确", "check": "instance.dimension > 0 and instance.capacity > 0" }
+          {
+            "desc": "实例文件格式正确",
+            "check": "instance.dimension > 0 and instance.capacity > 0"
+          }
         ],
         "core": [
-          { "desc": "RMP 可行（初始列覆盖所有客户）", "level": "L1", "method": "检查每个客户至少被一条初始路径覆盖", "cmd": "pytest src/python/tests/test_instance.py" },
-          { "desc": "每条初始路径满足容量约束 Q", "level": "L1", "method": "sum(demands) <= Q for each route" },
-          { "desc": "距离矩阵对称且非负", "level": "L1", "method": "c[i][j] == c[j][i] and c[i][j] >= 0" },
-          { "desc": "RMP 可以正常求解", "level": "L1", "method": "调用 LP 求解器返回 OPTIMAL", "cmd": "pytest src/python/tests/test_rmp.py" }
+          {
+            "desc": "RMP 可行（初始列覆盖所有客户）",
+            "level": "L1",
+            "method": "检查每个客户至少被一条初始路径覆盖",
+            "cmd": "pytest src/python/tests/test_instance.py"
+          },
+          {
+            "desc": "每条初始路径满足容量约束 Q",
+            "level": "L1",
+            "method": "sum(demands) <= Q for each route"
+          },
+          {
+            "desc": "距离矩阵对称且非负",
+            "level": "L1",
+            "method": "c[i][j] == c[j][i] and c[i][j] >= 0"
+          },
+          {
+            "desc": "RMP 可以正常求解",
+            "level": "L1",
+            "method": "调用 LP 求解器返回 OPTIMAL",
+            "cmd": "pytest src/python/tests/test_rmp.py"
+          }
         ],
         "post": [
-          { "desc": "RMP 对象已构建，可调用 solve()", "check": "rmp.model is not None" },
-          { "desc": "B&B 队列含且仅含根节点", "check": "len(queue) == 1" }
+          {
+            "desc": "RMP 对象已构建，可调用 solve()",
+            "check": "rmp.model is not None"
+          },
+          {
+            "desc": "B&B 队列含且仅含根节点",
+            "check": "len(queue) == 1"
+          }
         ]
       },
-      "code": {
-        "files": ["src/python/01_basic_bpc/instance.py", "src/python/01_basic_bpc/rmp.py"],
-        "snippet": "```python\n# instance.py — 实例加载\ndef load_instance(path):\n    inst = vrplib.read_instance(path)\n    n = inst['dimension'] - 1  # 客户数\n    Q = inst['capacity']\n    coords = inst.get('node_coord', None)\n    dist = compute_distance_matrix(coords)  # 或读 EXPLICIT\n    demands = inst['demand']\n    return n, Q, dist, demands\n\n# rmp.py — 初始列生成\ndef make_initial_columns(n, dist):\n    columns = []\n    for i in range(1, n + 1):\n        route = [0, i, 0]\n        cost = dist[0][i] + dist[i][0]\n        columns.append(Column(route, cost, visit={i}))\n    return columns\n```"
-      },
       "refs": "- Desrosiers et al. (2005) *A Primer in Column Generation*\n- CVRPLIB: http://vrp.atd-lab.inf.puc-rio.br/",
-      "pitfalls": "- **Windows GBK 编码**：Python 输出含 Unicode 字符会报 UnicodeEncodeError，需 `python -X utf8` 运行\n- **E-n13-k4 是 EXPLICIT 距离**：文件自带距离矩阵，最优值 290（非 EUC_2D 的 247）"
+      "implementation": "**关联文件**：`src/python/01_basic_bpc/instance.py`, `src/python/01_basic_bpc/rmp.py`\n\n### 伪代码\n\n```\nfunction Initialize(instance):\n    N, Q, q, c = parse_instance(instance)\n\n    # 生成初始列：每客户单独一条路径\n    initial_columns = []\n    for i in N:\n        route = [0, i, 0]          # depot -> i -> depot\n        cost = c[0][i] + c[i][0]\n        initial_columns.append((route, cost))\n\n    RMP = build_rmp(N, initial_columns)\n    UB = +infinity\n    queue = [RootNode(RMP)]\n    return RMP, UB, queue\n```\n\n### 关键步骤\n\n1. **读入实例**：解析 CVRPLIB 标准格式（.vrp 文件）\n2. **生成初始列**：每个客户单独配一辆车（一定可行但成本高）\n3. **建 RMP**：目标函数 $\\min \\sum c_r \\lambda_r$，约束为集合覆盖 $\\ge 1$\n4. **初始化 B&B 队列**：放入根节点，$UB = +\\infty$\n\n**为什么需要初始列**：没有初始列 → RMP 不可行 → 无法提取对偶值 → 列生成无法运转。\n\n```python\n# instance.py — 实例加载\ndef load_instance(path):\n    inst = vrplib.read_instance(path)\n    n = inst['dimension'] - 1  # 客户数\n    Q = inst['capacity']\n    coords = inst.get('node_coord', None)\n    dist = compute_distance_matrix(coords)  # 或读 EXPLICIT\n    demands = inst['demand']\n    return n, Q, dist, demands\n\n# rmp.py — 初始列生成\ndef make_initial_columns(n, dist):\n    columns = []\n    for i in range(1, n + 1):\n        route = [0, i, 0]\n        cost = dist[0][i] + dist[i][0]\n        columns.append(Column(route, cost, visit={i}))\n    return columns\n```\n\n### 踩坑记录\n\n- **Windows GBK 编码**：Python 输出含 Unicode 字符会报 UnicodeEncodeError，需 `python -X utf8` 运行\n- **E-n13-k4 是 EXPLICIT 距离**：文件自带距离矩阵，最优值 290（非 EUC_2D 的 247）"
     },
-
     "02_solve_rmp": {
       "title": "求解 RMP",
       "overview": "用 LP 求解器求解 RMP 的 LP 松弛，得到最优解和对偶值。\n\n**输入**：当前 RMP（含所有已生成的列）+ 当前 B&B 节点的分支约束\n\n**输出**：\n- 最优 LP 解 $\\lambda^*$\n- 最优目标值 $z^*_{LP}$（当前节点的下界 LB）\n- 对偶解 $\\pi^*$（传给定价子问题）\n\n| 目的 | 机制 |\n|------|------|\n| 获得下界 LB | $z^*_{LP}$ 是当前 B&B 节点整数最优值的下界 |\n| 获得对偶值 π | 指示「哪些客户最缺覆盖」，引导定价子问题 |",
-      "how": "```python\ndef solve_rmp(rmp, branch_constraints):\n    apply_branch_constraints(rmp, branch_constraints)\n    status = rmp.solve()\n    if status != OPTIMAL:\n        return INFEASIBLE  # 剪枝\n    lambda_star = rmp.get_values()\n    z_LP = rmp.get_objective()\n    pi = rmp.get_dual_values()\n    return lambda_star, z_LP, pi\n```\n\n**没有 LP 解 → 无对偶值 → 定价问题无法定义 → 列生成停滞**\n\n### MIP 端对端验证（小实例）\n\n列生成收敛后的 $z^*_{LP}$ 应 $\\ge$ 紧凑型 MIP 的 LP 松弛值（因为 SP-LP 更紧）。\n\n| 实例 | CG\\_LP | MCF\\_LP | IP | gap% |\n|------|------:|-------:|---:|-----:|\n| T3 (n=3) | 20.00 | 17.50 | 20 | 0.00% |\n| E-n13-k4 | 264.00 | 221.89 | 290 | 8.97% |\n| P-n16-k8 | 441.00 | 377.69 | 450 | 2.00% |",
       "verify": {
         "pre": [
-          { "desc": "RMP 含至少一组覆盖所有客户的列", "check": "all customers covered" },
-          { "desc": "分支约束已正确应用", "check": "branch constraints applied to model" }
+          {
+            "desc": "RMP 含至少一组覆盖所有客户的列",
+            "check": "all customers covered"
+          },
+          {
+            "desc": "分支约束已正确应用",
+            "check": "branch constraints applied to model"
+          }
         ],
         "core": [
-          { "desc": "LP 求解器返回 OPTIMAL", "level": "L1", "method": "status == GRB.OPTIMAL", "cmd": "pytest src/python/tests/test_rmp.py" },
-          { "desc": "所有 λ 值 ≥ 0", "level": "L1", "method": "all(v >= -1e-8 for v in lambda_star)" },
-          { "desc": "n 个覆盖约束均被满足（每客户 i 一个约束：Σ a_ir λ_r ≥ 1）", "level": "L1", "method": "对每个 i=1..n 检查 coverage_i ≥ 1 - eps" },
-          { "desc": "z_LP ≤ 已知最优解", "level": "L2", "method": "z_LP <= known_optimal + eps" },
-          { "desc": "T3 实例 LP=20, dual=(6,8,6)", "level": "L1", "method": "手算验证", "cmd": "pytest src/python/tests/test_rmp.py::test_t3_dual" }
+          {
+            "desc": "LP 求解器返回 OPTIMAL",
+            "level": "L1",
+            "method": "status == GRB.OPTIMAL",
+            "cmd": "pytest src/python/tests/test_rmp.py"
+          },
+          {
+            "desc": "所有 λ 值 ≥ 0",
+            "level": "L1",
+            "method": "all(v >= -1e-8 for v in lambda_star)"
+          },
+          {
+            "desc": "n 个覆盖约束均被满足（每客户 i 一个约束：Σ a_ir λ_r ≥ 1）",
+            "level": "L1",
+            "method": "对每个 i=1..n 检查 coverage_i ≥ 1 - eps"
+          },
+          {
+            "desc": "z_LP ≤ 已知最优解",
+            "level": "L2",
+            "method": "z_LP <= known_optimal + eps"
+          },
+          {
+            "desc": "T3 实例 LP=20, dual=(6,8,6)",
+            "level": "L1",
+            "method": "手算验证",
+            "cmd": "pytest src/python/tests/test_rmp.py::test_t3_dual"
+          }
         ],
         "post": [
-          { "desc": "lambda_star 维度 = 列数", "check": "len(lambda_star) == num_columns" },
-          { "desc": "pi 维度 = 客户数", "check": "len(pi) == n" },
-          { "desc": "所有 pi_i ≥ 0", "check": "all(p >= -1e-8 for p in pi)" }
+          {
+            "desc": "lambda_star 维度 = 列数",
+            "check": "len(lambda_star) == num_columns"
+          },
+          {
+            "desc": "pi 维度 = 客户数",
+            "check": "len(pi) == n"
+          },
+          {
+            "desc": "所有 pi_i ≥ 0",
+            "check": "all(p >= -1e-8 for p in pi)"
+          }
         ]
       },
-      "code": {
-        "files": ["src/python/01_basic_bpc/rmp.py"],
-        "snippet": "```python\nclass RMP:\n    def solve(self):\n        self.model.optimize()\n        if self.model.status != GRB.OPTIMAL:\n            return None, None, None, None\n        obj = self.model.ObjVal\n        vals = [v.X for v in self.col_vars]\n        cover_duals = [c.Pi for c in self.cover_constrs]\n        edge_duals = {k: c.Pi for k, c in self.edge_constrs.items()}\n        return obj, vals, cover_duals, edge_duals\n```"
-      },
       "refs": "- Lübbecke & Desrosiers (2005) *Selected Topics in Column Generation*\n- Gurobi 文档: LP 对偶值获取",
-      "pitfalls": "- **Gurobi `addConstr(0 >= 1)`**：Python 中 `0 >= 1` 先被求值为 `False`，正确写法用 `gp.LinExpr()`\n- **CG\\_LP > MCF\\_LP 是正常的**：CG 求的是 SP-LP（更紧），MCF 是聚合单商品流松弛"
+      "implementation": "**关联文件**：`src/python/01_basic_bpc/rmp.py`\n\n```python\ndef solve_rmp(rmp, branch_constraints):\n    apply_branch_constraints(rmp, branch_constraints)\n    status = rmp.solve()\n    if status != OPTIMAL:\n        return INFEASIBLE  # 剪枝\n    lambda_star = rmp.get_values()\n    z_LP = rmp.get_objective()\n    pi = rmp.get_dual_values()\n    return lambda_star, z_LP, pi\n```\n\n**没有 LP 解 → 无对偶值 → 定价问题无法定义 → 列生成停滞**\n\n### MIP 端对端验证（小实例）\n\n列生成收敛后的 $z^*_{LP}$ 应 $\\ge$ 紧凑型 MIP 的 LP 松弛值（因为 SP-LP 更紧）。\n\n| 实例 | CG\\_LP | MCF\\_LP | IP | gap% |\n|------|------:|-------:|---:|-----:|\n| T3 (n=3) | 20.00 | 17.50 | 20 | 0.00% |\n| E-n13-k4 | 264.00 | 221.89 | 290 | 8.97% |\n| P-n16-k8 | 441.00 | 377.69 | 450 | 2.00% |\n\n```python\nclass RMP:\n    def solve(self):\n        self.model.optimize()\n        if self.model.status != GRB.OPTIMAL:\n            return None, None, None, None\n        obj = self.model.ObjVal\n        vals = [v.X for v in self.col_vars]\n        cover_duals = [c.Pi for c in self.cover_constrs]\n        edge_duals = {k: c.Pi for k, c in self.edge_constrs.items()}\n        return obj, vals, cover_duals, edge_duals\n```\n\n### 踩坑记录\n\n- **Gurobi `addConstr(0 >= 1)`**：Python 中 `0 >= 1` 先被求值为 `False`，正确写法用 `gp.LinExpr()`\n- **CG\\_LP > MCF\\_LP 是正常的**：CG 求的是 SP-LP（更紧），MCF 是聚合单商品流松弛"
     },
-
     "03_extract_duals": {
       "title": "提取对偶 π",
       "overview": "从 LP 解中提取覆盖约束的对偶值（影子价格），传递给定价子问题。\n\n**输入**：RMP 的最优 LP 解\n\n**输出**：对偶向量 $\\pi = (\\pi_1, \\ldots, \\pi_n)$\n\n$$\\pi_i = \\text{覆盖约束 } i \\text{ 的影子价格}$$\n\n含义：多覆盖客户 $i$ 一次，目标值可减少 $\\pi_i$。$\\pi_i \\ge 0$（因为覆盖约束是 $\\ge$ 型）。\n\n对偶值是主问题和子问题之间的**桥梁**——告诉子问题「当前最缺哪些客户的覆盖，值多少钱」。",
-      "how": "```python\ndef extract_duals(rmp):\n    pi = []\n    for i in customers:\n        pi.append(rmp.get_dual(covering_constraint[i]))\n    return pi\n```\n\n### 关键步骤\n\n1. 调用 LP 求解器的对偶值接口\n2. 注意约束方向：$\\ge$ 约束的对偶值 $\\ge 0$\n3. 如果有额外约束（如车辆数约束），也要提取其对偶值\n\n**注意**：这一步在实现中通常与「求解 RMP」合并，单独列出是为了教学清晰。",
       "verify": {
         "pre": [
-          { "desc": "RMP 已求解且状态为 OPTIMAL", "check": "rmp.status == OPTIMAL" }
+          {
+            "desc": "RMP 已求解且状态为 OPTIMAL",
+            "check": "rmp.status == OPTIMAL"
+          }
         ],
         "core": [
-          { "desc": "所有 π_i ≥ 0", "level": "L1", "method": "all(pi_i >= -1e-8)", "cmd": "pytest src/python/tests/test_rmp.py" },
-          { "desc": "π 维度 = 客户数 n", "level": "L1", "method": "len(pi) == n" },
-          { "desc": "互补松弛条件成立", "level": "L2", "method": "约束松弛时 π_i = 0" }
+          {
+            "desc": "所有 π_i ≥ 0",
+            "level": "L1",
+            "method": "all(pi_i >= -1e-8)",
+            "cmd": "pytest src/python/tests/test_rmp.py"
+          },
+          {
+            "desc": "π 维度 = 客户数 n",
+            "level": "L1",
+            "method": "len(pi) == n"
+          },
+          {
+            "desc": "互补松弛条件成立",
+            "level": "L2",
+            "method": "约束松弛时 π_i = 0"
+          }
         ],
         "post": [
-          { "desc": "π 向量可传递给定价子问题", "check": "len(pi) == n and all finite" }
+          {
+            "desc": "π 向量可传递给定价子问题",
+            "check": "len(pi) == n and all finite"
+          }
         ]
       },
-      "code": {
-        "files": ["src/python/01_basic_bpc/rmp.py"],
-        "snippet": "```python\n# rmp.py — solve() 返回 cover_duals\ncover_duals = [c.Pi for c in self.cover_constrs]\nedge_duals = {k: c.Pi for k, c in self.edge_constrs.items()}\n```"
-      },
-      "refs": "- 线性规划对偶理论\n- Gurobi `Constr.Pi` 属性\n\n### Gurobi 对偶值符号约定\n\nGurobi 的 `Pi` 属性遵循以下规则：\n\n| 约束类型 | Pi 符号 | 原因 |\n|---------|--------|------|\n| $\\ge$ (覆盖约束) | $\\pi_i \\ge 0$ | 放松右端项 $\\to$ 目标改善 |\n| $\\le$ | $\\pi \\le 0$ | |\n| $=$ | 无限制 | |\n\n我们的覆盖约束是 $\\sum a_{ir}\\lambda_r \\ge 1$，所以 `Pi` $\\ge 0$，可直接用作 reduced cost 的减项。若改为 $\\le$ 型约束则符号反转，需取负。"
+      "refs": "- 线性规划对偶理论\n- Gurobi `Constr.Pi` 属性\n\n### Gurobi 对偶值符号约定\n\nGurobi 的 `Pi` 属性遵循以下规则：\n\n| 约束类型 | Pi 符号 | 原因 |\n|---------|--------|------|\n| $\\ge$ (覆盖约束) | $\\pi_i \\ge 0$ | 放松右端项 $\\to$ 目标改善 |\n| $\\le$ | $\\pi \\le 0$ | |\n| $=$ | 无限制 | |\n\n我们的覆盖约束是 $\\sum a_{ir}\\lambda_r \\ge 1$，所以 `Pi` $\\ge 0$，可直接用作 reduced cost 的减项。若改为 $\\le$ 型约束则符号反转，需取负。",
+      "implementation": "**关联文件**：`src/python/01_basic_bpc/rmp.py`\n\n```python\ndef extract_duals(rmp):\n    pi = []\n    for i in customers:\n        pi.append(rmp.get_dual(covering_constraint[i]))\n    return pi\n```\n\n### 关键步骤\n\n1. 调用 LP 求解器的对偶值接口\n2. 注意约束方向：$\\ge$ 约束的对偶值 $\\ge 0$\n3. 如果有额外约束（如车辆数约束），也要提取其对偶值\n\n**注意**：这一步在实现中通常与「求解 RMP」合并，单独列出是为了教学清晰。\n\n```python\n# rmp.py — solve() 返回 cover_duals\ncover_duals = [c.Pi for c in self.cover_constrs]\nedge_duals = {k: c.Pi for k, c in self.edge_constrs.items()}\n```"
     },
-
     "04_pricing": {
       "title": "定价子问题 (ESPPRC)",
-      "overview": "在修改后的图上求解资源约束最短路（ESPPRC），找到能改善 RMP 目标的新列。\n\n**输入**：距离矩阵 $c_{ij}$、需求 $q_i$、容量 $Q$、对偶值 $\\pi$\n\n**输出**：一组 reduced cost < 0 的新路径（列），或报告「没有负 RC 列」\n\n### Reduced Cost 公式\n\n$$\\bar{c}_r = c_r - \\sum_{i \\in r} \\pi_i$$\n\n$\\bar{c}_r < 0$ ⟹ 加入该列能改善目标。\n\n### ESPPRC vs SPPRC\n\n- **ESPPRC**（Elementary）：路径不允许重复访问 → NP-hard → 精确但慢\n- **SPPRC**（允许环）：多项式 → 快但可能生成不合法路径",
-      "model": "### ESPPRC 的 MIP 公式化（验证 Oracle）\n\n给定对偶值 $\\pi$，求 reduced cost 最小的可行路径。\n\n**集合与参数**\n- $V = \\{0\\} \\cup N$：depot + 客户\n- $\\bar{c}_{ij} = c_{ij} - \\pi_j$（$j \\neq 0$ 时），$\\bar{c}_{i0} = c_{i0}$：修改后边权\n- $q_i$：客户需求，$Q$：车辆容量\n\n**决策变量**\n- $x_{ij} \\in \\{0,1\\}$：是否走边 $(i,j)$\n- $u_i \\ge 0$：访问客户 $i$ 时的累计载荷（MTZ 变量，消除子回路）\n\n$$\\begin{array}{llll}\n\\min & \\displaystyle\\sum_{(i,j) \\in A} \\bar{c}_{ij} x_{ij} & & \\text{(1) 最小 reduced cost} \\\\[0.8em]\n\\text{s.t.} & \\displaystyle\\sum_{j \\in V} x_{0j} = 1 & & \\text{(2) 从 depot 出发} \\\\[0.8em]\n& \\displaystyle\\sum_{i \\in V} x_{i0} = 1 & & \\text{(3) 回到 depot} \\\\[0.8em]\n& \\displaystyle\\sum_{j} x_{ij} = \\sum_{j} x_{ji} & \\forall i \\in N & \\text{(4) 流守恒} \\\\[0.8em]\n& \\displaystyle\\sum_{j} x_{ij} \\le 1 & \\forall i \\in N & \\text{(5) 每客户至多访问一次} \\\\[0.8em]\n& u_j \\ge u_i + q_j - Q(1 - x_{ij}) & \\forall i \\in V, j \\in N & \\text{(6) MTZ 子回路消除 + 载荷} \\\\[0.8em]\n& q_i \\le u_i \\le Q & \\forall i \\in N & \\text{(7) 载荷范围} \\\\[0.8em]\n& x_{ij} \\in \\{0,1\\},\\; u_i \\ge 0 & & \\text{(8) 变量域}\n\\end{array}$$\n\n此 MIP 最优目标 = ESPPRC 最小 RC。用作 label-setting 的 L1 验证 oracle。",
-      "how": "### Label-Setting 算法\n\n```\nfunction PricingESPPRC(N, c, q, Q, pi):\n    c_bar[i][j] = c[i][j] - pi[j]  for all (i,j)\n\n    # Label = (node, cost, load, visited_bitmask)\n    labels = {0: [(0, 0, 0, 0b0)]}  # depot\n\n    for each label L = (node, cost, load, visited):\n        for each neighbor j not in visited:\n            if load + q[j] <= Q:\n                new_label = (j, cost + c_bar[node][j],\n                             load + q[j],\n                             visited | (1<<j))\n                # Dominance 检查\n                if not dominated(new_label, labels[j]):\n                    labels[j].append(new_label)\n\n    # 收集回depot且RC<0的路径\n    return [L for L in all_labels if L.cost + c_bar[L.node][0] < 0]\n```\n\n### 关键步骤\n\n1. **修改边权**：$\\bar{c}_{ij} = c_{ij} - \\pi_j$\n2. **Label 扩展**：从 depot 出发，逐步扩展\n3. **资源约束**：累计需求不超 $Q$\n4. **Dominance**：同节点同已访问集合，只保留 cost 最小的 label\n5. **收集负 RC 列**：回到 depot 后 RC < 0 即有用",
+      "overview": "在修改后的图上求解资源约束最短路（ESPPRC），找到能改善 RMP 目标的新列。\n\n**输入**：距离矩阵 $c_{ij}$、需求 $q_i$、容量 $Q$、对偶值 $\\pi$\n\n**输出**：一组 reduced cost < 0 的新路径（列），或报告「没有负 RC 列」\n\n### Reduced Cost 公式\n\n$$\\bar{c}_r = c_r - \\sum_{i \\in r} \\pi_i$$\n\n$\\bar{c}_r < 0$ ⟹ 加入该列能改善目标。\n\n### ESPPRC vs SPPRC\n\n- **ESPPRC**（Elementary）：路径不允许重复访问 → NP-hard → 精确但慢\n- **SPPRC**（允许环）：多项式 → 快但可能生成不合法路径\n\n### ESPPRC 的 MIP 公式化（验证 Oracle）\n\n给定对偶值 $\\pi$，求 reduced cost 最小的可行路径。\n\n**集合与参数**\n- $V = \\{0\\} \\cup N$：depot + 客户\n- $\\bar{c}_{ij} = c_{ij} - \\pi_j$（$j \\neq 0$ 时），$\\bar{c}_{i0} = c_{i0}$：修改后边权\n- $q_i$：客户需求，$Q$：车辆容量\n\n**决策变量**\n- $x_{ij} \\in \\{0,1\\}$：是否走边 $(i,j)$\n- $u_i \\ge 0$：访问客户 $i$ 时的累计载荷（MTZ 变量，消除子回路）\n\n$$\\begin{array}{llll}\n\\min & \\displaystyle\\sum_{(i,j) \\in A} \\bar{c}_{ij} x_{ij} & & \\text{(1) 最小 reduced cost} \\\\[0.8em]\n\\text{s.t.} & \\displaystyle\\sum_{j \\in V} x_{0j} = 1 & & \\text{(2) 从 depot 出发} \\\\[0.8em]\n& \\displaystyle\\sum_{i \\in V} x_{i0} = 1 & & \\text{(3) 回到 depot} \\\\[0.8em]\n& \\displaystyle\\sum_{j} x_{ij} = \\sum_{j} x_{ji} & \\forall i \\in N & \\text{(4) 流守恒} \\\\[0.8em]\n& \\displaystyle\\sum_{j} x_{ij} \\le 1 & \\forall i \\in N & \\text{(5) 每客户至多访问一次} \\\\[0.8em]\n& u_j \\ge u_i + q_j - Q(1 - x_{ij}) & \\forall i \\in V, j \\in N & \\text{(6) MTZ 子回路消除 + 载荷} \\\\[0.8em]\n& q_i \\le u_i \\le Q & \\forall i \\in N & \\text{(7) 载荷范围} \\\\[0.8em]\n& x_{ij} \\in \\{0,1\\},\\; u_i \\ge 0 & & \\text{(8) 变量域}\n\\end{array}$$\n\n此 MIP 最优目标 = ESPPRC 最小 RC。用作 label-setting 的 L1 验证 oracle。",
       "verify": {
         "pre": [
-          { "desc": "对偶值 π 已提取且维度正确", "check": "len(pi) == n" },
-          { "desc": "修改后的边权 c_bar 已计算", "check": "c_bar[i][j] = c[i][j] - pi[j]" }
+          {
+            "desc": "对偶值 π 已提取且维度正确",
+            "check": "len(pi) == n"
+          },
+          {
+            "desc": "修改后的边权 c_bar 已计算",
+            "check": "c_bar[i][j] = c[i][j] - pi[j]"
+          }
         ],
         "core": [
-          { "desc": "所有生成路径满足容量 Q", "level": "L1", "method": "sum(demands on route) <= Q", "cmd": "pytest src/python/tests/test_pricing.py" },
-          { "desc": "所有路径是 elementary（无重复客户）", "level": "L1", "method": "len(route) == len(set(route))" },
-          { "desc": "RC 计算正确：c_r - Σπ_i", "level": "L1", "method": "对比 label cost 与手动计算" },
-          { "desc": "MIP oracle 验证：ESPPRC 最优 RC = MIP 最优 RC", "level": "L1", "method": "将定价问题建为 MIP（二元变量 y_i 选客户、x_ij 选边，容量+流守恒+子回路消除），求解后最优目标 = 最小 RC。与 label-setting 结果对比，差 < 1e-6", "cmd": "pytest src/python/tests/test_pricing.py::test_mip_oracle" }
+          {
+            "desc": "所有生成路径满足容量 Q",
+            "level": "L1",
+            "method": "sum(demands on route) <= Q",
+            "cmd": "pytest src/python/tests/test_pricing.py"
+          },
+          {
+            "desc": "所有路径是 elementary（无重复客户）",
+            "level": "L1",
+            "method": "len(route) == len(set(route))"
+          },
+          {
+            "desc": "RC 计算正确：c_r - Σπ_i",
+            "level": "L1",
+            "method": "对比 label cost 与手动计算"
+          },
+          {
+            "desc": "MIP oracle 验证：ESPPRC 最优 RC = MIP 最优 RC",
+            "level": "L1",
+            "method": "将定价问题建为 MIP（二元变量 y_i 选客户、x_ij 选边，容量+流守恒+子回路消除），求解后最优目标 = 最小 RC。与 label-setting 结果对比，差 < 1e-6",
+            "cmd": "pytest src/python/tests/test_pricing.py::test_mip_oracle"
+          }
         ],
         "post": [
-          { "desc": "返回的列 RC 均 < 0，或列表为空（CG 收敛）", "check": "all(rc < -1e-8 for rc in results) or len(results) == 0" }
+          {
+            "desc": "返回的列 RC 均 < 0，或列表为空（CG 收敛）",
+            "check": "all(rc < -1e-8 for rc in results) or len(results) == 0"
+          }
         ]
       },
-      "code": {
-        "files": ["src/python/01_basic_bpc/pricing.py"],
-        "snippet": "```python\ndef solve_espprc(n, dist, demands, cap, duals, edge_duals=None,\n                 forced=None, forbidden=None, max_cols=500):\n    # 修改边权\n    c_bar = [[dist[i][j] - (duals[j-1] if j>0 else 0)\n              for j in range(n+1)] for i in range(n+1)]\n    # Label: (cost, load, node, visited_bitmask, path)\n    queue = deque([(0.0, 0, 0, 0, [0])])\n    best = {}  # (node, visited) -> best_cost\n    neg_rc_cols = []\n    while queue:\n        cost, load, node, visited, path = queue.popleft()\n        for j in range(1, n+1):\n            if visited & (1 << j): continue\n            if load + demands[j] > cap: continue\n            nc = cost + c_bar[node][j]\n            nv = visited | (1 << j)\n            key = (j, nv)\n            if key in best and best[key] <= nc + 1e-9:\n                continue\n            best[key] = nc\n            queue.append((nc, load+demands[j], j, nv, path+[j]))\n            # 检查回 depot\n            rc = nc + c_bar[j][0]\n            if rc < -1e-8:\n                neg_rc_cols.append((path+[j,0], rc))\n    return neg_rc_cols[:max_cols]\n```"
-      },
       "refs": "- Irnich & Desaulniers (2005) *Shortest Path Problems with Resource Constraints*\n- Righini & Salani (2006) *Symmetry helps: Bounded bi-directional dynamic programming for ESPPRC*",
-      "pitfalls": "- **bitmask 定价 n>18 后爆炸**：$2^n$ 状态空间，需 ng-route 松弛或 bucket graph\n- **`list.pop(0)` 性能**：O(n) 复杂度，应用 `collections.deque.popleft()`（O(1)）"
+      "implementation": "**关联文件**：`src/python/01_basic_bpc/pricing.py`\n\n### Label-Setting 算法\n\n```\nfunction PricingESPPRC(N, c, q, Q, pi):\n    c_bar[i][j] = c[i][j] - pi[j]  for all (i,j)\n\n    # Label = (node, cost, load, visited_bitmask)\n    labels = {0: [(0, 0, 0, 0b0)]}  # depot\n\n    for each label L = (node, cost, load, visited):\n        for each neighbor j not in visited:\n            if load + q[j] <= Q:\n                new_label = (j, cost + c_bar[node][j],\n                             load + q[j],\n                             visited | (1<<j))\n                # Dominance 检查\n                if not dominated(new_label, labels[j]):\n                    labels[j].append(new_label)\n\n    # 收集回depot且RC<0的路径\n    return [L for L in all_labels if L.cost + c_bar[L.node][0] < 0]\n```\n\n### 关键步骤\n\n1. **修改边权**：$\\bar{c}_{ij} = c_{ij} - \\pi_j$\n2. **Label 扩展**：从 depot 出发，逐步扩展\n3. **资源约束**：累计需求不超 $Q$\n4. **Dominance**：同节点同已访问集合，只保留 cost 最小的 label\n5. **收集负 RC 列**：回到 depot 后 RC < 0 即有用\n\n```python\ndef solve_espprc(n, dist, demands, cap, duals, edge_duals=None,\n                 forced=None, forbidden=None, max_cols=500):\n    # 修改边权\n    c_bar = [[dist[i][j] - (duals[j-1] if j>0 else 0)\n              for j in range(n+1)] for i in range(n+1)]\n    # Label: (cost, load, node, visited_bitmask, path)\n    queue = deque([(0.0, 0, 0, 0, [0])])\n    best = {}  # (node, visited) -> best_cost\n    neg_rc_cols = []\n    while queue:\n        cost, load, node, visited, path = queue.popleft()\n        for j in range(1, n+1):\n            if visited & (1 << j): continue\n            if load + demands[j] > cap: continue\n            nc = cost + c_bar[node][j]\n            nv = visited | (1 << j)\n            key = (j, nv)\n            if key in best and best[key] <= nc + 1e-9:\n                continue\n            best[key] = nc\n            queue.append((nc, load+demands[j], j, nv, path+[j]))\n            # 检查回 depot\n            rc = nc + c_bar[j][0]\n            if rc < -1e-8:\n                neg_rc_cols.append((path+[j,0], rc))\n    return neg_rc_cols[:max_cols]\n```\n\n### 踩坑记录\n\n- **bitmask 定价 n>18 后爆炸**：$2^n$ 状态空间，需 ng-route 松弛或 bucket graph\n- **`list.pop(0)` 性能**：O(n) 复杂度，应用 `collections.deque.popleft()`（O(1)）"
     },
-
     "05_column_check": {
       "title": "负 RC 列检查",
       "overview": "列生成的终止条件判断：如果没有负 RC 列，说明当前 LP 松弛已达最优。\n\n**输入**：定价子问题的输出 — 一组候选列（可能为空）\n\n**输出**：\n- **有负 RC 列** → 加入 RMP，回到步骤 2 继续迭代\n- **无负 RC 列** → 列生成收敛，进入整数性检查\n\n### 核心定理（对偶理论）\n\n> 不存在 $\\bar{c}_r < 0$ 的列 $\\Leftrightarrow$ 当前 LP 松弛已是**全局最优**（在所有列上）",
-      "how": "```python\ndef column_check(new_columns, rmp):\n    if len(new_columns) == 0:\n        return CONVERGED  # CG 收敛\n    for col in new_columns:\n        rmp.add_column(col.cost, col.coverage)\n    return CONTINUE\n```\n\n**实践技巧**：通常一次加入多条负 RC 列（而非只加最优的一条），可加速收敛。我们的实现限制 `max_cols=500`。",
       "verify": {
         "pre": [
-          { "desc": "定价子问题已完成求解", "check": "pricing result available" }
+          {
+            "desc": "定价子问题已完成求解",
+            "check": "pricing result available"
+          }
         ],
         "core": [
-          { "desc": "新列的 cost 和 coverage 系数正确", "level": "L1", "method": "对比原始距离和路径" },
-          { "desc": "CG 收敛时所有列 RC ≥ -ε（ε=1e-8）", "level": "L2", "method": "最后一轮定价以 RC < -1e-8 为阈值，返回空列表即收敛。注意：LP 求解器的对偶值本身有 ~1e-10 级数值噪声，定价阈值不能设得比这更紧。我们用 1e-8 作为负 RC 判定阈值，既避免误报（噪声触发）又不遗漏真正的负 RC 列。", "cmd": "pytest src/python/tests/test_cg_convergence.py" },
-          { "desc": "迭代次数合理（不无限循环）", "level": "L2", "method": "iter_count < max_iters" }
+          {
+            "desc": "新列的 cost 和 coverage 系数正确",
+            "level": "L1",
+            "method": "对比原始距离和路径"
+          },
+          {
+            "desc": "CG 收敛时所有列 RC ≥ -ε（ε=1e-8）",
+            "level": "L2",
+            "method": "最后一轮定价以 RC < -1e-8 为阈值，返回空列表即收敛。注意：LP 求解器的对偶值本身有 ~1e-10 级数值噪声，定价阈值不能设得比这更紧。我们用 1e-8 作为负 RC 判定阈值，既避免误报（噪声触发）又不遗漏真正的负 RC 列。",
+            "cmd": "pytest src/python/tests/test_cg_convergence.py"
+          },
+          {
+            "desc": "迭代次数合理（不无限循环）",
+            "level": "L2",
+            "method": "iter_count < max_iters"
+          }
         ],
         "post": [
-          { "desc": "RMP 列集已更新 或 CG 已收敛", "check": "columns added or converged flag set" }
+          {
+            "desc": "RMP 列集已更新 或 CG 已收敛",
+            "check": "columns added or converged flag set"
+          }
         ]
       },
-      "code": {
-        "files": ["src/python/01_basic_bpc/main.py"],
-        "snippet": "```python\n# main.py — solve_cg() 中的列检查\nnew_cols = solve_espprc(n, dist, demands, cap, duals, ...)\nif not new_cols:\n    break  # CG 收敛\nfor route, rc in new_cols:\n    visit = set(v for v in route if v != 0)\n    cost = sum(dist[route[i]][route[i+1]] for i in range(len(route)-1))\n    rmp.add_column(cost, visit, route)\n```"
-      }
+      "implementation": "**关联文件**：`src/python/01_basic_bpc/main.py`\n\n```python\ndef column_check(new_columns, rmp):\n    if len(new_columns) == 0:\n        return CONVERGED  # CG 收敛\n    for col in new_columns:\n        rmp.add_column(col.cost, col.coverage)\n    return CONTINUE\n```\n\n**实践技巧**：通常一次加入多条负 RC 列（而非只加最优的一条），可加速收敛。我们的实现限制 `max_cols=500`。\n\n```python\n# main.py — solve_cg() 中的列检查\nnew_cols = solve_espprc(n, dist, demands, cap, duals, ...)\nif not new_cols:\n    break  # CG 收敛\nfor route, rc in new_cols:\n    visit = set(v for v in route if v != 0)\n    cost = sum(dist[route[i]][route[i+1]] for i in range(len(route)-1))\n    rmp.add_column(cost, visit, route)\n```"
     },
-
     "06_integrality_check": {
       "title": "整数性检查",
       "overview": "检查 LP 松弛解是否恰好是整数（每条路径要么选要么不选）。\n\n**输入**：CG 收敛后的 LP 最优解 $\\lambda^*$\n\n**输出**：\n- **是整数** → 找到可行整数解，更新 UB\n- **非整数** → 需要分支\n\n如果 LP 解恰好是整数，则它也是 **IP 的最优解**（因为 $LP \\le IP$，整数可行解 = 上界 = 下界）。",
-      "how": "```python\ndef integrality_check(lambda_star, z_LP, UB, best_sol):\n    EPS = 1e-6\n    is_integer = all(\n        abs(v - round(v)) < EPS for v in lambda_star\n    )\n    if is_integer:\n        if z_LP < UB:\n            UB = z_LP\n            best_sol = extract_solution(lambda_star)\n        return INTEGER, UB, best_sol\n    else:\n        return FRACTIONAL, UB, best_sol\n```\n\n### 关键步骤\n\n1. 对每个 $\\lambda_r$ 检查是否接近 0 或 1（容差 $\\varepsilon = 10^{-6}$）\n2. 全部整数 → 更新 UB 和最优解\n3. 有分数 → 需要分支",
       "verify": {
         "pre": [
-          { "desc": "CG 已收敛（无负 RC 列）", "check": "cg_converged == True" }
+          {
+            "desc": "CG 已收敛（无负 RC 列）",
+            "check": "cg_converged == True"
+          }
         ],
         "core": [
-          { "desc": "整数判断容差设置合理", "level": "L1", "method": "EPS = 1e-6" },
-          { "desc": "UB 只减不增", "level": "L1", "method": "new_UB <= old_UB", "cmd": "pytest src/python/tests/test_branch.py" },
-          { "desc": "整数解对应可行路径（覆盖+容量）", "level": "L1", "method": "checker.verify(solution)" }
+          {
+            "desc": "整数判断容差设置合理",
+            "level": "L1",
+            "method": "EPS = 1e-6"
+          },
+          {
+            "desc": "UB 只减不增",
+            "level": "L1",
+            "method": "new_UB <= old_UB",
+            "cmd": "pytest src/python/tests/test_branch.py"
+          },
+          {
+            "desc": "整数解对应可行路径（覆盖+容量）",
+            "level": "L1",
+            "method": "checker.verify(solution)"
+          }
         ],
         "post": [
-          { "desc": "返回 INTEGER 或 FRACTIONAL 状态", "check": "status in {INTEGER, FRACTIONAL}" }
+          {
+            "desc": "返回 INTEGER 或 FRACTIONAL 状态",
+            "check": "status in {INTEGER, FRACTIONAL}"
+          }
         ]
       },
-      "code": {
-        "files": ["src/python/01_basic_bpc/utils.py"],
-        "snippet": "```python\ndef is_integer_solution(vals, tol=1e-6):\n    return all(abs(v - round(v)) < tol for v in vals)\n```"
-      }
+      "implementation": "**关联文件**：`src/python/01_basic_bpc/utils.py`\n\n```python\ndef integrality_check(lambda_star, z_LP, UB, best_sol):\n    EPS = 1e-6\n    is_integer = all(\n        abs(v - round(v)) < EPS for v in lambda_star\n    )\n    if is_integer:\n        if z_LP < UB:\n            UB = z_LP\n            best_sol = extract_solution(lambda_star)\n        return INTEGER, UB, best_sol\n    else:\n        return FRACTIONAL, UB, best_sol\n```\n\n### 关键步骤\n\n1. 对每个 $\\lambda_r$ 检查是否接近 0 或 1（容差 $\\varepsilon = 10^{-6}$）\n2. 全部整数 → 更新 UB 和最优解\n3. 有分数 → 需要分支\n\n```python\ndef is_integer_solution(vals, tol=1e-6):\n    return all(abs(v - round(v)) < tol for v in vals)\n```"
     },
-
     "07_bound_check": {
       "title": "界检查 (Bound Check)",
       "overview": "如果当前节点的下界已经不优于已知最优解，就剪枝。\n\n**输入**：当前节点下界 $LB = z^*_{LP}$，全局上界 $UB$\n\n**输出**：\n- $LB \\ge UB$ → **剪枝**（该节点不可能产生更优解）\n- $LB < UB$ → 继续分支探索\n\n### 原理\n\n$$LB \\le IP^* \\le UB$$\n\n若 $LB \\ge UB$ → 该子树的 $IP^* \\ge LB \\ge UB$ → 不可能比已知解更好 → 剪枝安全。\n\n**整数代价剪枝**：对整数距离问题，可用 $\\lceil LB \\rceil \\ge UB$ 更强地剪枝（如 289.33 vs UB=290 可剪枝）。",
-      "how": "```python\ndef bound_check(LB, UB):\n    EPS = 1e-6\n    if math.ceil(LB - EPS) >= UB:  # 整数代价剪枝\n        return PRUNE\n    else:\n        return BRANCH\n```\n\n### 关键步骤\n\n1. 比较 LB 与 UB（浮点精度用 ε 容差）\n2. 剪枝条件包括 $LB = UB$（无改善空间）\n3. 整数距离问题用 $\\lceil LB \\rceil \\ge UB$ 更强",
       "verify": {
         "pre": [
-          { "desc": "LB 是 CG 收敛后的 LP 最优值", "check": "LB == z_LP after CG convergence" },
-          { "desc": "UB 是全局最优整数解的目标值", "check": "UB == best integer objective" }
+          {
+            "desc": "LB 是 CG 收敛后的 LP 最优值",
+            "check": "LB == z_LP after CG convergence"
+          },
+          {
+            "desc": "UB 是全局最优整数解的目标值",
+            "check": "UB == best integer objective"
+          }
         ],
         "core": [
-          { "desc": "浮点比较使用容差 ε", "level": "L1", "method": "代码审查" },
-          { "desc": "剪枝后节点不再被访问", "level": "L2", "method": "B&B 队列不含已剪枝节点", "cmd": "pytest src/python/tests/test_branch.py" },
-          { "desc": "整数代价剪枝有效", "level": "L2", "method": "ceil(289.33) >= 290 → prune" }
+          {
+            "desc": "浮点比较使用容差 ε",
+            "level": "L1",
+            "method": "代码审查"
+          },
+          {
+            "desc": "剪枝后节点不再被访问",
+            "level": "L2",
+            "method": "B&B 队列不含已剪枝节点",
+            "cmd": "pytest src/python/tests/test_branch.py"
+          },
+          {
+            "desc": "整数代价剪枝有效",
+            "level": "L2",
+            "method": "ceil(289.33) >= 290 → prune"
+          }
         ],
         "post": [
-          { "desc": "返回 PRUNE 或 BRANCH", "check": "result in {PRUNE, BRANCH}" }
+          {
+            "desc": "返回 PRUNE 或 BRANCH",
+            "check": "result in {PRUNE, BRANCH}"
+          }
         ]
       },
-      "code": {
-        "files": ["src/python/01_basic_bpc/main.py"],
-        "snippet": "```python\n# main.py — B&B 循环中的界检查\nif math.ceil(lb - 1e-9) >= ub:\n    stats['pruned'] += 1\n    continue  # 剪枝\n```"
-      },
-      "pitfalls": "- **整数代价剪枝**显著减少无用探索：289.33 vs UB=290 可剪枝，节省大量 B&B 节点"
+      "implementation": "**关联文件**：`src/python/01_basic_bpc/main.py`\n\n```python\ndef bound_check(LB, UB):\n    EPS = 1e-6\n    if math.ceil(LB - EPS) >= UB:  # 整数代价剪枝\n        return PRUNE\n    else:\n        return BRANCH\n```\n\n### 关键步骤\n\n1. 比较 LB 与 UB（浮点精度用 ε 容差）\n2. 剪枝条件包括 $LB = UB$（无改善空间）\n3. 整数距离问题用 $\\lceil LB \\rceil \\ge UB$ 更强\n\n```python\n# main.py — B&B 循环中的界检查\nif math.ceil(lb - 1e-9) >= ub:\n    stats['pruned'] += 1\n    continue  # 剪枝\n```\n\n### 踩坑记录\n\n- **整数代价剪枝**显著减少无用探索：289.33 vs UB=290 可剪枝，节省大量 B&B 节点"
     },
-
     "08_branch": {
       "title": "分支 (Branch)",
       "overview": "在分数解上选择分支变量，创建子节点以消除分数性。\n\n**输入**：当前节点的 LP 解 $\\lambda^*$（含分数值）\n\n**输出**：两个子节点，各自附加不同的分支约束\n\n### Phase 1 策略：边分支\n\n选择使用分数次的边 $(i, j)$：\n- 左子节点：$x_{ij} = 0$（禁用该边）\n- 右子节点：$x_{ij} = 1$（强制使用该边）",
-      "how": "### 边分支伪代码\n\n```\nfunction Branch(lambda_star, columns, queue, node):\n    # 1. 计算边的聚合流量\n    x[i][j] = sum(lambda_r * [r 使用边 (i,j)])\n\n    # 2. 选最接近 0.5 的分数边\n    best_edge = argmin |x[i][j] - 0.5|\n        where 0 < x[i][j] < 1\n\n    # 3. 创建子节点\n    left  = node.copy(); left.forbid(i, j)   # x_ij = 0\n    right = node.copy(); right.force(i, j)   # x_ij = 1\n    queue.push(left); queue.push(right)\n```\n\n### 关键步骤\n\n1. **聚合边流**：从 $\\lambda$ 解反算 $x_{ij}$\n2. **选分支边**：$x_{ij}$ 最接近 0.5（分支平衡性最好）\n3. **创建子节点**：左右各一个，附加互斥边约束\n4. **入队**：DFS 策略（栈），先探索右子节点（forced 更可能可行）",
       "verify": {
         "pre": [
-          { "desc": "LP 解含分数值", "check": "not is_integer_solution(lambda_star)" }
+          {
+            "desc": "LP 解含分数值",
+            "check": "not is_integer_solution(lambda_star)"
+          }
         ],
         "core": [
-          { "desc": "分支变量确实是分数值", "level": "L1", "method": "0 < x[i][j] < 1", "cmd": "pytest src/python/tests/test_branch.py" },
-          { "desc": "左右子节点约束互补", "level": "L1", "method": "left.forbidden ∩ right.forced = {(i,j)}" },
-          { "desc": "子节点继承父节点所有分支约束", "level": "L1", "method": "child.constraints ⊇ parent.constraints" },
-          { "desc": "手造 λ 验算分支选择", "level": "L1", "method": "给定 λ 值验证选出的边", "cmd": "pytest src/python/tests/test_branch.py::test_branch_selection" }
+          {
+            "desc": "分支变量确实是分数值",
+            "level": "L1",
+            "method": "0 < x[i][j] < 1",
+            "cmd": "pytest src/python/tests/test_branch.py"
+          },
+          {
+            "desc": "左右子节点约束互补",
+            "level": "L1",
+            "method": "left.forbidden ∩ right.forced = {(i,j)}"
+          },
+          {
+            "desc": "子节点继承父节点所有分支约束",
+            "level": "L1",
+            "method": "child.constraints ⊇ parent.constraints"
+          },
+          {
+            "desc": "手造 λ 验算分支选择",
+            "level": "L1",
+            "method": "给定 λ 值验证选出的边",
+            "cmd": "pytest src/python/tests/test_branch.py::test_branch_selection"
+          }
         ],
         "post": [
-          { "desc": "B&B 队列新增 2 个子节点", "check": "len(queue) increased by 2" }
+          {
+            "desc": "B&B 队列新增 2 个子节点",
+            "check": "len(queue) increased by 2"
+          }
         ]
       },
-      "code": {
-        "files": ["src/python/01_basic_bpc/branch.py"],
-        "snippet": "```python\ndef select_branch_edge(vals, columns, n):\n    \"\"\"选最接近 0.5 的分数边\"\"\"\n    x = defaultdict(float)\n    for val, col in zip(vals, columns):\n        if val < 1e-8: continue\n        for k in range(len(col.route)-1):\n            i, j = col.route[k], col.route[k+1]\n            a, b = min(i,j), max(i,j)\n            x[(a,b)] += val\n    best, best_frac = None, 1.0\n    for (a,b), flow in x.items():\n        if flow > 1e-6 and flow < 1-1e-6:\n            frac = abs(flow - 0.5)\n            if frac < best_frac:\n                best, best_frac = (a,b), frac\n    return best\n```"
-      },
-      "pitfalls": "- **forced 分支易导致不可行**（~50% 节点）：artificial variables 必须有，否则 RMP 报 infeasible\n- **Restricted MIP 启发式**比 nearest-neighbor 强得多（290 vs 352）"
+      "implementation": "**关联文件**：`src/python/01_basic_bpc/branch.py`\n\n### 边分支伪代码\n\n```\nfunction Branch(lambda_star, columns, queue, node):\n    # 1. 计算边的聚合流量\n    x[i][j] = sum(lambda_r * [r 使用边 (i,j)])\n\n    # 2. 选最接近 0.5 的分数边\n    best_edge = argmin |x[i][j] - 0.5|\n        where 0 < x[i][j] < 1\n\n    # 3. 创建子节点\n    left  = node.copy(); left.forbid(i, j)   # x_ij = 0\n    right = node.copy(); right.force(i, j)   # x_ij = 1\n    queue.push(left); queue.push(right)\n```\n\n### 关键步骤\n\n1. **聚合边流**：从 $\\lambda$ 解反算 $x_{ij}$\n2. **选分支边**：$x_{ij}$ 最接近 0.5（分支平衡性最好）\n3. **创建子节点**：左右各一个，附加互斥边约束\n4. **入队**：DFS 策略（栈），先探索右子节点（forced 更可能可行）\n\n```python\ndef select_branch_edge(vals, columns, n):\n    \"\"\"选最接近 0.5 的分数边\"\"\"\n    x = defaultdict(float)\n    for val, col in zip(vals, columns):\n        if val < 1e-8: continue\n        for k in range(len(col.route)-1):\n            i, j = col.route[k], col.route[k+1]\n            a, b = min(i,j), max(i,j)\n            x[(a,b)] += val\n    best, best_frac = None, 1.0\n    for (a,b), flow in x.items():\n        if flow > 1e-6 and flow < 1-1e-6:\n            frac = abs(flow - 0.5)\n            if frac < best_frac:\n                best, best_frac = (a,b), frac\n    return best\n```\n\n### 踩坑记录\n\n- **forced 分支易导致不可行**（~50% 节点）：artificial variables 必须有，否则 RMP 报 infeasible\n- **Restricted MIP 启发式**比 nearest-neighbor 强得多（290 vs 352）"
     },
-
     "09_terminate": {
       "title": "输出最优解",
-      "overview": "B&B 队列清空意味着所有可能的整数解空间已被探索或剪枝。此时 UB 就是全局最优。\n\n**输入**：B&B 队列为空 + 全局最优整数解 best\\_sol 和 UB\n\n**输出**：最优解（路径集合 + 总成本）+ 求解统计\n\n### 为什么可以终止\n\n队列空意味着所有 B&B 节点要么：\n- (a) 剪枝（$LB \\ge UB$）\n- (b) 产生整数解（已更新 UB）\n- (c) 不可行\n\n因此 $UB$ = 全局最优整数解。",
-      "model": "### CVRP 紧凑 MIP（单商品流公式化）\n\n端对端验证 oracle：直接建模整个 CVRP，用求解器求最优整数解，与 BPC 输出对比。\n\n**集合与参数**\n\n| 符号 | 含义 |\n|------|------|\n| $V = \\\\{0,1,\\\\dots,n\\\\}$ | 节点集合，$0$ = depot |\n| $C = \\\\{1,\\\\dots,n\\\\}$ | 客户集合 |\n| $c_{ij}$ | 弧 $(i,j)$ 的距离/成本 |\n| $d_i$ | 客户 $i$ 的需求量 |\n| $Q$ | 车辆容量 |\n| $K_{\\\\min} = \\\\lceil \\\\sum_i d_i / Q \\\\rceil$ | 最少车辆数 |\n\n**决策变量**\n\n| 变量 | 域 | 含义 |\n|------|----|------|\n| $x_{ij}$ | $\\\\{0,1\\\\}$ | 弧 $(i,j)$ 是否被使用 |\n| $f_{ij}$ | $[0, Q]$ | 弧 $(i,j)$ 上的聚合需求流量 |\n\n**MIP 模型**\n\n$$\n\\\\begin{array}{llll}\n\\\\min & \\\\displaystyle\\\\sum_{(i,j) \\\\in A} c_{ij}\\\\, x_{ij} & & \\\\text{(0) 最小化总行驶成本} \\\\\\\\[0.8em]\n\\\\text{s.t.} & \\\\displaystyle\\\\sum_{j \\\\in V \\\\setminus \\\\{i\\\\}} x_{ij} = 1 & \\\\forall\\\\, i \\\\in C & \\\\text{(1) 每个客户恰好离开一次} \\\\\\\\[0.8em]\n& \\\\displaystyle\\\\sum_{j \\\\in V \\\\setminus \\\\{i\\\\}} x_{ji} = 1 & \\\\forall\\\\, i \\\\in C & \\\\text{(2) 每个客户恰好到达一次} \\\\\\\\[0.8em]\n& \\\\displaystyle\\\\sum_{j \\\\in C} x_{0j} \\\\ge K_{\\\\min} & & \\\\text{(3) 至少使用 $K_{\\\\min}$ 辆车} \\\\\\\\[0.8em]\n& \\\\displaystyle\\\\sum_{j \\\\in C} x_{0j} = \\\\sum_{j \\\\in C} x_{j0} & & \\\\text{(4) depot 出入平衡} \\\\\\\\[0.8em]\n& \\\\displaystyle\\\\sum_{j \\\\in V \\\\setminus \\\\{i\\\\}} f_{ji} - \\\\sum_{j \\\\in V \\\\setminus \\\\{i\\\\}} f_{ij} = d_i & \\\\forall\\\\, i \\\\in C & \\\\text{(5) 流量守恒（每客户消耗 $d_i$）} \\\\\\\\[0.8em]\n& d_j\\\\, x_{ij} \\\\le f_{ij} \\\\le Q\\\\, x_{ij} & \\\\forall\\\\, (i,j) \\\\in A & \\\\text{(6) 容量 linking + 子回路消除} \\\\\\\\[0.8em]\n& x_{ij} \\\\in \\\\{0,1\\\\},\\\\; f_{ij} \\\\ge 0 & \\\\forall\\\\, (i,j) \\\\in A & \\\\text{(7) 变量域}\n\\\\end{array}\n$$\n\n**关键说明**\n\n- 约束 (5)+(6) 联合消除子回路（等价于 Gavish-Graves 1978 单商品流）\n- 该紧凑 MIP 变量数 $O(n^2)$，适合小实例（$n \\\\le 50$）直接求解\n- LP 松弛 bound 通常弱于列生成 SP 的 LP bound，但 IP 最优值相同\n- 验证方法：Gurobi 求解此 MIP 的 IP 最优 $\\\\to$ 与 BPC 输出对比",
-      "how": "```python\ndef terminate(UB, best_sol, stats):\n    if UB == float('inf'):\n        print(\"No feasible solution found\")\n        return\n    print(f\"Optimal cost: {UB}\")\n    print(f\"Routes: {best_sol}\")\n    print(f\"B&B nodes explored: {stats['nodes']}\")\n    print(f\"Total CG iterations: {stats['cg_iters']}\")\n    print(f\"Gap: {(UB - stats['root_lb']) / UB * 100:.2f}%\")\n```",
+      "overview": "B&B 队列清空意味着所有可能的整数解空间已被探索或剪枝。此时 UB 就是全局最优。\n\n**输入**：B&B 队列为空 + 全局最优整数解 best\\_sol 和 UB\n\n**输出**：最优解（路径集合 + 总成本）+ 求解统计\n\n### 为什么可以终止\n\n队列空意味着所有 B&B 节点要么：\n- (a) 剪枝（$LB \\ge UB$）\n- (b) 产生整数解（已更新 UB）\n- (c) 不可行\n\n因此 $UB$ = 全局最优整数解。\n\n### CVRP 紧凑 MIP（单商品流公式化）\n\n端对端验证 oracle：直接建模整个 CVRP，用求解器求最优整数解，与 BPC 输出对比。\n\n**集合与参数**\n\n| 符号 | 含义 |\n|------|------|\n| $V = \\\\{0,1,\\\\dots,n\\\\}$ | 节点集合，$0$ = depot |\n| $C = \\\\{1,\\\\dots,n\\\\}$ | 客户集合 |\n| $c_{ij}$ | 弧 $(i,j)$ 的距离/成本 |\n| $d_i$ | 客户 $i$ 的需求量 |\n| $Q$ | 车辆容量 |\n| $K_{\\\\min} = \\\\lceil \\\\sum_i d_i / Q \\\\rceil$ | 最少车辆数 |\n\n**决策变量**\n\n| 变量 | 域 | 含义 |\n|------|----|------|\n| $x_{ij}$ | $\\\\{0,1\\\\}$ | 弧 $(i,j)$ 是否被使用 |\n| $f_{ij}$ | $[0, Q]$ | 弧 $(i,j)$ 上的聚合需求流量 |\n\n**MIP 模型**\n\n$$\n\\\\begin{array}{llll}\n\\\\min & \\\\displaystyle\\\\sum_{(i,j) \\\\in A} c_{ij}\\\\, x_{ij} & & \\\\text{(0) 最小化总行驶成本} \\\\\\\\[0.8em]\n\\\\text{s.t.} & \\\\displaystyle\\\\sum_{j \\\\in V \\\\setminus \\\\{i\\\\}} x_{ij} = 1 & \\\\forall\\\\, i \\\\in C & \\\\text{(1) 每个客户恰好离开一次} \\\\\\\\[0.8em]\n& \\\\displaystyle\\\\sum_{j \\\\in V \\\\setminus \\\\{i\\\\}} x_{ji} = 1 & \\\\forall\\\\, i \\\\in C & \\\\text{(2) 每个客户恰好到达一次} \\\\\\\\[0.8em]\n& \\\\displaystyle\\\\sum_{j \\\\in C} x_{0j} \\\\ge K_{\\\\min} & & \\\\text{(3) 至少使用 $K_{\\\\min}$ 辆车} \\\\\\\\[0.8em]\n& \\\\displaystyle\\\\sum_{j \\\\in C} x_{0j} = \\\\sum_{j \\\\in C} x_{j0} & & \\\\text{(4) depot 出入平衡} \\\\\\\\[0.8em]\n& \\\\displaystyle\\\\sum_{j \\\\in V \\\\setminus \\\\{i\\\\}} f_{ji} - \\\\sum_{j \\\\in V \\\\setminus \\\\{i\\\\}} f_{ij} = d_i & \\\\forall\\\\, i \\\\in C & \\\\text{(5) 流量守恒（每客户消耗 $d_i$）} \\\\\\\\[0.8em]\n& d_j\\\\, x_{ij} \\\\le f_{ij} \\\\le Q\\\\, x_{ij} & \\\\forall\\\\, (i,j) \\\\in A & \\\\text{(6) 容量 linking + 子回路消除} \\\\\\\\[0.8em]\n& x_{ij} \\\\in \\\\{0,1\\\\},\\\\; f_{ij} \\\\ge 0 & \\\\forall\\\\, (i,j) \\\\in A & \\\\text{(7) 变量域}\n\\\\end{array}\n$$\n\n**关键说明**\n\n- 约束 (5)+(6) 联合消除子回路（等价于 Gavish-Graves 1978 单商品流）\n- 该紧凑 MIP 变量数 $O(n^2)$，适合小实例（$n \\\\le 50$）直接求解\n- LP 松弛 bound 通常弱于列生成 SP 的 LP bound，但 IP 最优值相同\n- 验证方法：Gurobi 求解此 MIP 的 IP 最优 $\\\\to$ 与 BPC 输出对比",
       "verify": {
         "pre": [
-          { "desc": "B&B 队列为空", "check": "len(queue) == 0" }
+          {
+            "desc": "B&B 队列为空",
+            "check": "len(queue) == 0"
+          }
         ],
         "core": [
-          { "desc": "每条路径满足容量约束 Q", "level": "L1", "method": "checker.verify()", "cmd": "pytest src/python/tests/test_e2e.py" },
-          { "desc": "所有客户被恰好覆盖一次", "level": "L1", "method": "checker.verify()" },
-          { "desc": "目标值 = 所有选中路径距离之和", "level": "L1", "method": "checker.verify()", "cmd": "pytest src/python/tests/test_checker.py" },
-          { "desc": "P-n16-k8 精确求解 cost=450", "level": "L3", "method": "端对端测试", "cmd": "pytest src/python/tests/test_e2e.py::test_pn16k8" }
+          {
+            "desc": "每条路径满足容量约束 Q",
+            "level": "L1",
+            "method": "checker.verify()",
+            "cmd": "pytest src/python/tests/test_e2e.py"
+          },
+          {
+            "desc": "所有客户被恰好覆盖一次",
+            "level": "L1",
+            "method": "checker.verify()"
+          },
+          {
+            "desc": "目标值 = 所有选中路径距离之和",
+            "level": "L1",
+            "method": "checker.verify()",
+            "cmd": "pytest src/python/tests/test_checker.py"
+          },
+          {
+            "desc": "P-n16-k8 精确求解 cost=450",
+            "level": "L3",
+            "method": "端对端测试",
+            "cmd": "pytest src/python/tests/test_e2e.py::test_pn16k8"
+          }
         ],
         "post": [
-          { "desc": "输出完整求解统计", "check": "stats printed" }
+          {
+            "desc": "输出完整求解统计",
+            "check": "stats printed"
+          }
         ]
       },
-      "code": {
-        "files": ["src/python/01_basic_bpc/main.py", "src/python/01_basic_bpc/checker.py"],
-        "snippet": "```python\n# checker.py — 解验证\ndef check_solution(routes, dist, demands, capacity, n_customers):\n    visited = set()\n    total_cost = 0\n    for route in routes:\n        load = sum(demands[v] for v in route if v != 0)\n        assert load <= capacity, f\"Capacity violated: {load} > {capacity}\"\n        for v in route:\n            if v != 0:\n                assert v not in visited, f\"Customer {v} visited twice\"\n                visited.add(v)\n        total_cost += route_cost(route, dist)\n    assert visited == set(range(1, n_customers+1)), \"Not all customers covered\"\n    return total_cost\n```"
-      }
+      "implementation": "**关联文件**：`src/python/01_basic_bpc/main.py`, `src/python/01_basic_bpc/checker.py`\n\n```python\ndef terminate(UB, best_sol, stats):\n    if UB == float('inf'):\n        print(\"No feasible solution found\")\n        return\n    print(f\"Optimal cost: {UB}\")\n    print(f\"Routes: {best_sol}\")\n    print(f\"B&B nodes explored: {stats['nodes']}\")\n    print(f\"Total CG iterations: {stats['cg_iters']}\")\n    print(f\"Gap: {(UB - stats['root_lb']) / UB * 100:.2f}%\")\n```\n\n```python\n# checker.py — 解验证\ndef check_solution(routes, dist, demands, capacity, n_customers):\n    visited = set()\n    total_cost = 0\n    for route in routes:\n        load = sum(demands[v] for v in route if v != 0)\n        assert load <= capacity, f\"Capacity violated: {load} > {capacity}\"\n        for v in route:\n            if v != 0:\n                assert v not in visited, f\"Customer {v} visited twice\"\n                visited.add(v)\n        total_cost += route_cost(route, dist)\n    assert visited == set(range(1, n_customers+1)), \"Not all customers covered\"\n    return total_cost\n```"
     }
   },
-
   "state": {
     "nodes": {
-      "01_initialize":       { "status": "implemented", "verify_results": { "pre": [true], "core": [true, true, true, true], "post": [true, true] } },
-      "02_solve_rmp":        { "status": "implemented", "verify_results": { "pre": [true, true], "core": [true, true, true, true, true], "post": [true, true, true] } },
-      "03_extract_duals":    { "status": "implemented", "verify_results": { "pre": [true], "core": [true, true, true], "post": [true] } },
-      "04_pricing":          { "status": "implemented", "verify_results": { "pre": [true, true], "core": [true, true, true, true], "post": [true] } },
-      "05_column_check":     { "status": "implemented", "verify_results": { "pre": [true], "core": [true, true, true], "post": [true] } },
-      "06_integrality_check":{ "status": "implemented", "verify_results": { "pre": [true], "core": [true, true, true], "post": [true] } },
-      "07_bound_check":      { "status": "implemented", "verify_results": { "pre": [true, true], "core": [true, true, true], "post": [true] } },
-      "08_branch":           { "status": "implemented", "verify_results": { "pre": [true], "core": [true, true, true, true], "post": [true] } },
-      "09_terminate":        { "status": "implemented", "verify_results": { "pre": [true], "core": [true, true, true, true], "post": [true] } }
+      "01_initialize": {
+        "status": "implemented",
+        "verify_results": {
+          "pre": [
+            true
+          ],
+          "core": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "post": [
+            true,
+            true
+          ]
+        }
+      },
+      "02_solve_rmp": {
+        "status": "implemented",
+        "verify_results": {
+          "pre": [
+            true,
+            true
+          ],
+          "core": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "post": [
+            true,
+            true,
+            true
+          ]
+        }
+      },
+      "03_extract_duals": {
+        "status": "implemented",
+        "verify_results": {
+          "pre": [
+            true
+          ],
+          "core": [
+            true,
+            true,
+            true
+          ],
+          "post": [
+            true
+          ]
+        }
+      },
+      "04_pricing": {
+        "status": "implemented",
+        "verify_results": {
+          "pre": [
+            true,
+            true
+          ],
+          "core": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "post": [
+            true
+          ]
+        }
+      },
+      "05_column_check": {
+        "status": "implemented",
+        "verify_results": {
+          "pre": [
+            true
+          ],
+          "core": [
+            true,
+            true,
+            true
+          ],
+          "post": [
+            true
+          ]
+        }
+      },
+      "06_integrality_check": {
+        "status": "implemented",
+        "verify_results": {
+          "pre": [
+            true
+          ],
+          "core": [
+            true,
+            true,
+            true
+          ],
+          "post": [
+            true
+          ]
+        }
+      },
+      "07_bound_check": {
+        "status": "implemented",
+        "verify_results": {
+          "pre": [
+            true,
+            true
+          ],
+          "core": [
+            true,
+            true,
+            true
+          ],
+          "post": [
+            true
+          ]
+        }
+      },
+      "08_branch": {
+        "status": "implemented",
+        "verify_results": {
+          "pre": [
+            true
+          ],
+          "core": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "post": [
+            true
+          ]
+        }
+      },
+      "09_terminate": {
+        "status": "implemented",
+        "verify_results": {
+          "pre": [
+            true
+          ],
+          "core": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "post": [
+            true
+          ]
+        }
+      }
     },
     "annotations": {
       "flow": [],

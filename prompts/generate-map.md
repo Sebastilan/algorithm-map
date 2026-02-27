@@ -24,7 +24,7 @@
 - **增量写文件**：A4 写 JSON 骨架，B1-B4 读文件补充验证，不依赖对话记忆
 - **对话从简**：对话中只输出步骤号 + 一行进展。禁止在对话中输出大段伪代码、方案表格、JSON 片段
 - **CC 读 JSON，用户看 HTML**：CC 始终读写 `algorithm-map.json`。用户看 standalone HTML（交互式流程图）。**禁止把 JSON 内容贴到对话中让用户看，禁止 CC 读取 HTML 文件**
-- **JSON 内容统一用中文**：title、overview、how 中的注释和说明、verify 的 desc、pitfalls 等文本字段用中文。代码块内的变量名/函数名保持英文
+- **JSON 内容统一用中文**：title、overview、implementation 中的注释和说明、verify 的 desc 等文本字段用中文。代码块内的变量名/函数名保持英文
 
 **调研控制**：
 - **默认用自身知识**——CC 的训练数据覆盖绝大多数经典算法，直接用即可
@@ -45,7 +45,7 @@
 
 - **输入**：对话上下文中的需求共识
 - **输出**：对话中输出一行算法概要（几步、几层循环、关键模块），标注 `=== A1 ===`
-- 伪代码是后续节点分解的基础——在脑中想清楚，但**不在对话中输出完整伪代码**（直接写入各节点 `how` 字段）
+- 伪代码是后续节点分解的基础——在脑中想清楚，但**不在对话中输出完整伪代码**（直接写入各节点 `implementation` 字段）
 - 如果自身知识不足，拒绝编造臆想，可以网上搜索
 
 ### A2. 逐节点确定方案
@@ -54,10 +54,10 @@
 - **环境探查（必做，限 1 条命令）**：`pip list` 看全貌，根据结果选型。**禁止凭默认假设选型，也禁止逐个 `pip show` 挨个查。**
 - **方法**：结合环境探查结果和自身知识，为每个节点选定方案。只在确实不知道关键细节时才搜索
 - **输出**：对话中简要列出各节点的选定方案和一句话理由，标注 `=== A2 节点方案 ===`
-- 不要在对话中输出详细伪代码——详细实现直接写入 JSON 的 contents.how
-- **`how` 字段格式**：用代码块（```python）或结构化伪代码，禁止散文叙述夹 Unicode 数学符号（渲染器对散文格式的公式支持差）
+- 不要在对话中输出详细伪代码——详细实现直接写入 JSON 的 contents.implementation
+- **`implementation` 字段格式**：用代码块（```python）或结构化伪代码，禁止散文叙述夹 Unicode 数学符号。踩坑记录也写在此字段末尾
 - **选经典方案，不追前沿**。Plan 阶段目标是"跑通"，不是"最优"。前沿优化留给 build 之后。经过验证的、业界常用的、稳定的方案就是最好的选择
-- **`model` 字段（可选）**：如果节点涉及求解一个优化问题（LP/MIP/DP/最短路等），在 `model` 字段写完整的数学公式化（集合/参数定义 + 目标函数 + 约束条件，用 LaTeX `\begin{array}` 四列布局）。`overview` 保留叙述性说明（是什么、为什么），`model` 是精确的数学标准——验证时直接建该模型用求解器求解作为 oracle。不涉及求解的节点省略此字段
+- **数学模型写在 `overview` 末尾**：如果节点涉及求解优化问题（LP/MIP/DP/最短路等），在 `overview` 字段的叙述之后附完整数学公式化（集合/参数定义 + 目标函数 + 约束条件，用 LaTeX `\begin{array}` 四列布局）。这是精确的数学标准——验证时直接建该模型用求解器求解作为 oracle
 
 ### A3. 判断算法类型
 
@@ -77,10 +77,9 @@
 **填充内容**：
 - `meta`：标题、日期、benchmark 信息
 - `graph`：完整的 nodes + edges + regions
-- `contents`：每个 process/decision 节点填写 title / overview / model（可选，涉及优化求解的节点必填） / how / refs / pitfalls
+- `contents`：每个 process/decision 节点填写 title / overview（含数学模型） / implementation / refs
 - `verify`：**留空**（`{"pre":[], "core":[], "post":[]}`），Phase B 填充
 - `state`：所有 process 节点 → `not_started`
-- `code`：留空
 
 **转换规则**：
 - 函数调用 → `process` 节点
@@ -205,7 +204,7 @@ Task 职责：
 
 | 层级 | 策略 | 示例 |
 |------|------|------|
-| L1 | 示例数据 → 精确比对期望值。**有 `model` 字段的节点优先用 MIP oracle**——将模型用求解器（如 Gurobi）建模求解，与模块输出对比 | 定价子问题：建 ESPPRC 的 MIP → Gurobi 求最优 RC → 与 label-setting 对比 |
+| L1 | 示例数据 → 精确比对期望值。**overview 含数学模型的节点优先用 MIP oracle**——将模型用求解器（如 Gurobi）建模求解，与模块输出对比 | 定价子问题：建 ESPPRC 的 MIP → Gurobi 求最优 RC → 与 label-setting 对比 |
 | L2 | 独立求解器交叉验证 | 列生成收敛后 z*_LP 与 SP-LP 全量 MIP 对比 |
 | L3 | 标准 benchmark 已知最优。小实例可用整个问题的紧凑 MIP 求解对比，大实例对比开源顶尖求解器 | CVRP 紧凑 MIP（单商品流）Gurobi 直接求解 |
 
@@ -293,14 +292,14 @@ python C:/Users/ligon/CCA/algorithm-map/tools/export_standalone.py algorithm-map
   },
   "contents": {
     "01_xxx": {
-      "title": "", "overview": "", "model": "", "how": "",
+      "title": "", "overview": "", "implementation": "",
       "critical": false,
       "verify": {
         "pre":  [{"desc": "条件描述", "check": "断言表达式"}],
         "core": [],
         "post": [{"desc": "条件描述", "check": "断言表达式"}]
       },
-      "code": { "files": [], "snippet": "" }, "refs": "", "pitfalls": ""
+      "refs": ""
     }
   },
   "state": {

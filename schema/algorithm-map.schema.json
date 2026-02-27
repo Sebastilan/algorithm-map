@@ -149,7 +149,7 @@
 
     "nodeContent": {
       "type": "object",
-      "description": "单个节点的多维内容（overview/model/how/verify/code/refs/pitfalls）",
+      "description": "单个节点的三维内容（overview/implementation/verify）",
       "required": ["title", "overview"],
       "additionalProperties": false,
       "properties": {
@@ -161,17 +161,12 @@
 
         "overview": {
           "type": "string",
-          "description": "概述（Markdown）：一句话说明、输入→输出、为什么需要"
+          "description": "概述（Markdown+LaTeX）：说明、输入→输出、为什么需要。涉及优化求解的节点在末尾附完整数学模型"
         },
 
-        "model": {
+        "implementation": {
           "type": "string",
-          "description": "数学模型（Markdown+LaTeX）：完整的 MIP/LP/DP 公式化。仅用于涉及求解优化问题的节点，可选。"
-        },
-
-        "how": {
-          "type": "string",
-          "description": "实现方法（Markdown）：算法思路、核心逻辑步骤、数据流、设计决策"
+          "description": "实现（Markdown）：算法思路、关键代码片段、设计决策、踩坑记录"
         },
 
         "verify": {
@@ -201,31 +196,9 @@
           }
         },
 
-        "code": {
-          "type": "object",
-          "description": "代码信息",
-          "additionalProperties": false,
-          "properties": {
-            "files": {
-              "type": "array",
-              "items": { "type": "string" },
-              "description": "关联的源码文件路径列表"
-            },
-            "snippet": {
-              "type": "string",
-              "description": "关键代码片段（Markdown 代码块格式）"
-            }
-          }
-        },
-
         "refs": {
           "type": "string",
           "description": "参考资料（Markdown）：论文、文档、开源实现等"
-        },
-
-        "pitfalls": {
-          "type": "string",
-          "description": "踩坑记录（Markdown）：开发过程中遇到的问题和解决方案"
         }
 
       }
@@ -313,7 +286,7 @@
             "properties": {
               "id":       { "type": "string", "description": "批注唯一 ID" },
               "target":   { "type": "string", "description": "所属节点 id" },
-              "tab":      { "enum": ["overview", "model", "how", "verify", "code", "refs", "pitfalls"], "description": "所属 Tab" },
+              "tab":      { "enum": ["overview", "implementation", "verify"], "description": "所属 Tab" },
               "text":     { "type": "string", "description": "批注内容" },
               "anchor":   { "type": "string", "description": "被批注的原文片段（可选，用于定位高亮）" },
               "time":     { "type": "string", "format": "date-time", "description": "批注时间" },

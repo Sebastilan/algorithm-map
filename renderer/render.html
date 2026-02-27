@@ -514,21 +514,13 @@ body.anno-mode-on .edge-hit { pointer-events: stroke; cursor: crosshair; }
     </div>
     <div class="tab-bar" id="tabBar">
       <button class="tab-btn active" data-tab="overview">概述</button>
-      <button class="tab-btn" data-tab="model" style="display:none">模型</button>
-      <button class="tab-btn" data-tab="how">How</button>
-      <button class="tab-btn" data-tab="verify">Verify</button>
-      <button class="tab-btn" data-tab="code">Code</button>
-      <button class="tab-btn" data-tab="refs">参考</button>
-      <button class="tab-btn" data-tab="pitfalls">踩坑</button>
+      <button class="tab-btn" data-tab="implementation">实现</button>
+      <button class="tab-btn" data-tab="verify">验证</button>
     </div>
     <div class="tab-content-area">
       <div class="tab-pane active" id="pane-overview"></div>
-      <div class="tab-pane" id="pane-model"></div>
-      <div class="tab-pane" id="pane-how"></div>
+      <div class="tab-pane" id="pane-implementation"></div>
       <div class="tab-pane" id="pane-verify"></div>
-      <div class="tab-pane" id="pane-code"></div>
-      <div class="tab-pane" id="pane-refs"></div>
-      <div class="tab-pane" id="pane-pitfalls"></div>
     </div>
   </div>
 </div>
@@ -1014,37 +1006,20 @@ function openPanel(nodeId) {
   // Restore node-mode tabs
   document.querySelector(".panel-status").style.display = "";
   const tabBtns = document.getElementById("tabBar").querySelectorAll(".tab-btn");
-  const nodeTabLabels = { overview: "概述", model: "模型", how: "How", verify: "Verify", code: "Code", refs: "参考", pitfalls: "踩坑" };
+  const nodeTabLabels = { overview: "概述", implementation: "实现", verify: "验证" };
   tabBtns.forEach(btn => {
     btn.style.display = "";
     btn.textContent = nodeTabLabels[btn.dataset.tab] || btn.dataset.tab;
-    if (btn.dataset.tab === "model" && !data.model) btn.style.display = "none";
   });
 
   document.getElementById("panelTitle").textContent = data.title;
   statusSel.value = state.statuses[nodeId] || "not_started";
 
   // --- Fill tabs with Markdown rendering ---
-  const overviewHtml = renderMd(data.overview);
-  const modelHtml = data.model ? renderMd(data.model) : '';
-  const howHtml = renderMd(data.how);
-  const refsHtml = renderMd(data.refs);
-  const pitfallsHtml = data.pitfalls ? renderMd(data.pitfalls) : '<p style="color:#999">暂无踩坑记录。遇到 bug 后在此记录。</p>';
+  const overviewHtml = renderMd(data.overview || '');
+  const implHtml = data.implementation ? renderMd(data.implementation) : '<p style="color:#999">暂无实现（规划阶段）</p>';
 
-  // Code tab
-  let codeHtml = "";
-  if (data.code) {
-    if (data.code.files && data.code.files.length > 0) {
-      codeHtml += "<h3>代码文件</h3>";
-      data.code.files.forEach(f => { codeHtml += `<div class="code-path"><code>${f}</code></div>`; });
-    }
-    if (data.code.snippet) {
-      codeHtml += "<h3>核心实现</h3>" + renderMd(data.code.snippet);
-    }
-  }
-  if (!codeHtml) codeHtml = '<p style="color:#999">暂无代码（规划阶段）</p>';
-
-  rawTabContent = { overview: overviewHtml, model: modelHtml, how: howHtml, code: codeHtml, refs: refsHtml, pitfalls: pitfallsHtml };
+  rawTabContent = { overview: overviewHtml, implementation: implHtml };
   for (const [tab, html] of Object.entries(rawTabContent)) {
     document.getElementById(`pane-${tab}`).innerHTML = html;
   }
@@ -1079,7 +1054,9 @@ function openPanel(nodeId) {
   });
 
   const checkedCount = Object.values(state.verifyChecks[nodeId] || {}).filter(Boolean).length;
-  document.getElementById("pane-verify").innerHTML = `<div class="verify-header"><h3>验证规范</h3><p>三层验证：前置条件 → 内部正确性 → 后置条件。全部通过 = 此环节可信。</p></div>${verifyHtml}<div class="verify-summary">通过 <span class="verify-summary-count">${checkedCount} / ${totalItems}</span> 项</div>`;
+  const refsHtml = data.refs ? `<hr style="margin:1.5em 0"><h3>参考资料</h3>${renderMd(data.refs)}` : '';
+  document.getElementById("pane-verify").innerHTML = `<div class="verify-header"><h3>验证规范</h3><p>三层验证：前置条件 → 内部正确性 → 后置条件。全部通过 = 此环节可信。</p></div>${verifyHtml}<div class="verify-summary">通过 <span class="verify-summary-count">${checkedCount} / ${totalItems}</span> 项</div>${refsHtml}`;
+  rawTabContent.verify = document.getElementById("pane-verify").innerHTML;
 
   // Apply annotations
   for (const tab of Object.keys(rawTabContent)) {
@@ -1112,13 +1089,11 @@ function openRegionPanel(regionId) {
   // Tab labels for region mode
   const tabBar = document.getElementById("tabBar");
   const tabBtns = tabBar.querySelectorAll(".tab-btn");
-  const regionTabs = ["overview", "model", "how", "verify"];
   tabBtns.forEach(btn => {
     const tab = btn.dataset.tab;
     if (tab === "overview") { btn.textContent = "概述"; btn.style.display = ""; }
-    else if (tab === "model") { btn.textContent = "模型"; btn.style.display = region.model ? "" : "none"; }
-    else if (tab === "how") { btn.textContent = "节点"; btn.style.display = ""; }
-    else if (tab === "verify") { btn.textContent = "Verify"; btn.style.display = ""; }
+    else if (tab === "implementation") { btn.textContent = "节点"; btn.style.display = ""; }
+    else if (tab === "verify") { btn.textContent = "验证"; btn.style.display = ""; }
     else { btn.style.display = "none"; }
   });
 
@@ -1161,12 +1136,12 @@ function openRegionPanel(regionId) {
   const checkedCount = Object.values(state.verifyChecks[regionId] || {}).filter(Boolean).length;
   const verifyFullHtml = `<div class="verify-header"><h3>区域验证</h3><p>L2 交叉验证：各子模块组合后，整体行为是否符合预期。</p></div>${verifyHtml}<div class="verify-summary">通过 <span class="verify-summary-count">${checkedCount} / ${totalItems}</span> 项</div>`;
 
-  const regionModelHtml = region.model ? renderMd(region.model) : '';
-  rawTabContent = { overview: semanticHtml, model: regionModelHtml, how: nodesHtml, verify: "", code: "", refs: "", pitfalls: "" };
+  rawTabContent = { overview: semanticHtml, implementation: nodesHtml, verify: "" };
   for (const [tab, html] of Object.entries(rawTabContent)) {
     document.getElementById(`pane-${tab}`).innerHTML = html;
   }
   document.getElementById("pane-verify").innerHTML = verifyFullHtml;
+  rawTabContent.verify = verifyFullHtml;
 
   document.getElementById("panel").classList.add("open");
   document.getElementById("flowchartContainer").classList.add("panel-open");
@@ -1211,7 +1186,7 @@ document.querySelectorAll(".modal-overlay").forEach(el => {
 // ===================================================================
 function escapeHtml(str) { const div = document.createElement("div"); div.textContent = str; return div.innerHTML; }
 
-const ALL_TABS = new Set(["overview", "how", "verify", "code", "refs", "pitfalls"]);
+const ALL_TABS = new Set(["overview", "implementation", "verify"]);
 const ANNO_SELECTORS = "p, li, pre, dd, td, blockquote, .verify-item";
 
 // Overlay
@@ -1359,7 +1334,7 @@ document.querySelector(".tab-content-area").addEventListener("click", e => {
 
 // Feedback export
 function buildFeedbackMarkdown() {
-  const tabNames = {overview:"Overview", how:"How", code:"Code", verify:"Verify", refs:"Refs", pitfalls:"Pitfalls"};
+  const tabNames = {overview:"概述", implementation:"实现", verify:"验证"};
   const params = new URLSearchParams(location.search);
   const src = params.get("src") || "../examples/bpc-phase1.json";
   const title = mapData?.meta?.title || "Algorithm Map";
