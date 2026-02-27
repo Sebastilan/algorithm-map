@@ -60,7 +60,7 @@
           "core": [
             { "desc": "CG 收敛后 z*_LP 等于 SP-LP 全局最优", "level": "L2", "method": "与 Gurobi 直接求 SP-LP 对比（小实例）", "cmd": "pytest src/python/tests/test_cg_convergence.py" },
             { "desc": "CG 迭代次数合理（不无限循环）", "level": "L2", "method": "设 max_iter=200，正常实例 <50 轮" },
-            { "desc": "T3 实例 CG 收敛到 LP=20", "level": "L1", "method": "手算推导：T3 有 5 条可行路径（3 条单客户 + 2 条对称的 {1,3} 组合，{1,2} 和 {2,3} 需求超容量）。最优覆盖 = 路线 [0,1,3,0](cost=12) + [0,2,0](cost=8) = 20。该解本身就是整数解，所以 LP=IP=20。也可用 Gurobi 对 SP-LP 直接求解验证。", "cmd": "pytest src/python/tests/test_cg_convergence.py::test_t3_converge" }
+            { "desc": "T3 实例 CG 收敛到 LP=20", "level": "L1", "method": "枚举 T3 全部可行路径建 SP 模型（set covering LP），Gurobi 求解 LP 松弛 = 20。CG 收敛后 z*_LP 应与此一致。", "cmd": "pytest src/python/tests/test_cg_convergence.py::test_t3_converge" }
           ],
           "post": [
             { "desc": "所有列的 RC ≥ 0（无遗漏负 RC 列）", "check": "最后一轮 pricing 返回空列表" },
