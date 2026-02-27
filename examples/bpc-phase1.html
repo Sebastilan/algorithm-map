@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>算法地图</title>
+<!-- Markdown renderer -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
+<!-- KaTeX for LaTeX math -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<!-- Dagre for graph layout -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #fafbfc;
+  --text: #1a1a2e;
+  --text-secondary: #555;
+  --border: #d0d7de;
+  --panel-bg: #ffffff;
+  --panel-width: 520px;
+  --header-h: 52px;
+  --accent: #2563eb;
+  --accent-light: #dbeafe;
+  --node-process: #e8f0fe;
+  --node-process-stroke: #4285f4;
+  --node-decision: #fef7e0;
+  --node-decision-stroke: #f9ab00;
+  --node-terminal: #e6f4ea;
+  --node-terminal-stroke: #34a853;
+  --node-auxiliary: #f3f4f6;
+  --node-auxiliary-stroke: #9ca3af;
+  --status-not-started: #d1d5db;
+  --status-discussing: #f97316;
+  --status-theory-ok: #3b82f6;
+  --status-implemented: #22c55e;
+  --status-verified: #15803d;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ===== Header ===== */
+.header {
+  height: var(--header-h);
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  z-index: 100;
+  position: relative;
+}
+.header h1 { font-size: 18px; font-weight: 700; white-space: nowrap; }
+.phase-badge {
+  font-size: 12px;
+  background: var(--accent-light);
+  color: var(--accent);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+.header-spacer { flex: 1; }
+.header-btn {
+  font-size: 13px; padding: 5px 12px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: #fff; color: var(--text); cursor: pointer;
+}
+.header-btn:hover { background: #f3f4f6; }
+.header-btn-export {
+  font-size: 13px; padding: 5px 12px;
+  border: 1px solid #f9ab00; border-radius: 6px;
+  background: #fff8e1; color: #b45309; cursor: pointer; font-weight: 600;
+}
+
+/* Progress mini */
+.progress-mini { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+.progress-bar-bg { width: 80px; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.3s; }
+
+/* ===== Main Layout ===== */
+.main { display: flex; height: calc(100vh - var(--header-h)); flex: 1; overflow: hidden; }
+
+.flowchart-container {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+  transition: margin-right 0.3s ease;
+}
+.flowchart-container.panel-open { margin-right: var(--panel-width); }
+
+/* ===== SVG Flowchart ===== */
+svg.flowchart { display: block; margin: 0 auto; }
+
+.node-group { cursor: pointer; }
+.node-group:hover .node-shape { filter: brightness(0.95); }
+.node-group.selected .node-shape {
+  stroke-width: 3;
+  filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.4));
+}
+.node-label {
+  font-size: 13px; font-weight: 600; fill: var(--text);
+  text-anchor: middle; dominant-baseline: central; pointer-events: none;
+}
+.node-sublabel {
+  font-size: 10px; fill: var(--text-secondary);
+  text-anchor: middle; dominant-baseline: central; pointer-events: none;
+}
+.edge-line { stroke: #6b7280; stroke-width: 1.5; fill: none; }
+.edge-label { font-size: 11px; fill: #6b7280; }
+.arrowhead { fill: #6b7280; }
+.status-dot { stroke: #fff; stroke-width: 1.5; }
+
+/* Region labels */
+.region-rect {
+  fill: transparent; stroke: var(--accent); stroke-width: 1;
+  stroke-dasharray: 6 3; rx: 12; opacity: 0.4;
+  transition: opacity 0.2s, stroke-width 0.2s;
+}
+.region-group { cursor: pointer; }
+.region-group:hover .region-rect { opacity: 0.7; stroke-width: 2; }
+.region-group.selected .region-rect { opacity: 0.9; stroke-width: 2.5; stroke-dasharray: none; }
+.region-label {
+  font-size: 11px; font-weight: 600; fill: var(--accent); letter-spacing: 0.5px;
+  pointer-events: none;
+}
+.region-member-node {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px;
+  cursor: pointer; transition: background 0.15s;
+}
+.region-member-node:hover { background: var(--accent-light); }
+
+/* ===== Right Panel ===== */
+.panel {
+  position: fixed; top: var(--header-h); right: 0;
+  width: var(--panel-width); height: calc(100vh - var(--header-h));
+  background: var(--panel-bg); border-left: 1px solid var(--border);
+  transform: translateX(100%); transition: transform 0.3s ease;
+  display: flex; flex-direction: column; z-index: 50;
+}
+.panel.open { transform: translateX(0); }
+
+.panel-header {
+  display: flex; align-items: center; padding: 14px 18px;
+  border-bottom: 1px solid var(--border); gap: 10px;
+}
+.panel-header h2 { flex: 1; font-size: 16px; }
+.panel-close { border: none; background: none; font-size: 22px; cursor: pointer; color: #999; }
+
+.panel-status { display: flex; align-items: center; padding: 10px 18px; gap: 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.panel-status select {
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 8px; font-size: 13px; font-family: inherit;
+}
+
+/* Tabs */
+.tab-bar {
+  display: flex; border-bottom: 1px solid var(--border);
+  padding: 0 18px; gap: 0; overflow-x: auto;
+}
+.tab-btn {
+  padding: 10px 14px; font-size: 13px; font-weight: 500;
+  border: none; background: none; cursor: pointer;
+  color: var(--text-secondary); border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+.tab-content-area {
+  flex: 1; overflow-y: auto; padding: 18px;
+  font-size: 14px; line-height: 1.8;
+}
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+.tab-content-area h3 { font-size: 15px; margin: 14px 0 6px; color: var(--text); }
+.tab-content-area ul, .tab-content-area ol { padding-left: 20px; margin-bottom: 10px; }
+.tab-content-area pre {
+  background: #f6f8fa; border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px; overflow-x: auto;
+  font-size: 13px; line-height: 1.6;
+}
+.tab-content-area code { font-family: "SF Mono", Consolas, monospace; font-size: 13px; }
+.tab-content-area p { margin-bottom: 8px; }
+.tab-content-area p code, .tab-content-area li code {
+  background: #f0f4f8; padding: 2px 6px; border-radius: 4px; font-size: 12px;
+}
+
+/* Math blocks rendered by KaTeX */
+.tab-content-area .katex-display { margin: 10px 0; overflow-x: auto; }
+
+/* Code paths */
+.code-path { margin-bottom: 6px; font-size: 13px; }
+.code-path code {
+  background: #f0f4f8; padding: 2px 6px; border-radius: 4px;
+  font-size: 12px; color: #0969da;
+}
+
+/* Verify items */
+.verify-header { margin-bottom: 12px; }
+.verify-header h3 { margin: 0 0 4px; }
+.verify-header p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+.verify-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.15s;
+}
+.verify-item { cursor: pointer; }
+.verify-item:hover { background: #f9fafb; }
+.verify-item.passed { background: #f0fdf4; border-color: #86efac; }
+.verify-check-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.verify-content { flex: 1; }
+.verify-meta { display: flex; gap: 6px; margin-top: 4px; }
+.verify-level {
+  font-size: 11px; font-weight: 600; padding: 1px 6px;
+  border-radius: 4px; background: #dbeafe; color: #1d4ed8;
+}
+.verify-method-text { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.verify-cmd {
+  display: block; font-size: 11px; margin-top: 4px;
+  background: #1e293b; color: #e2e8f0; padding: 6px 10px;
+  border-radius: 4px; font-family: monospace; white-space: pre-wrap;
+}
+.verify-summary { font-size: 13px; margin-top: 12px; color: var(--text-secondary); }
+.verify-summary-count { font-weight: 700; color: var(--accent); }
+
+/* Verify 3-layer section headers */
+.verify-section-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0 6px; margin-top: 14px; font-size: 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.verify-section-header:first-child { margin-top: 0; }
+.verify-section-icon { font-size: 18px; width: 28px; text-align: center; flex-shrink: 0; }
+.verify-section-sub { font-size: 12px; color: var(--text-secondary); font-weight: 400; margin-top: 2px; }
+
+/* ===== Annotations ===== */
+.anno-mode-btn { transition: all 0.2s; }
+.anno-mode-btn.active {
+  background: #fff8e1 !important; border-color: #f9ab00 !important;
+  color: #b45309 !important; font-weight: 600;
+}
+body.anno-mode-on .flowchart-container { cursor: crosshair; }
+body.anno-mode-on .node-group { cursor: crosshair; }
+body.anno-mode-on .region-group { cursor: crosshair; pointer-events: all; }
+body.anno-mode-on .edge-line { cursor: crosshair; pointer-events: stroke; }
+.edge-hit { stroke: transparent; stroke-width: 18; fill: none; pointer-events: none; }
+body.anno-mode-on .edge-hit { pointer-events: stroke; cursor: crosshair; }
+
+.flow-anno-marker { cursor: pointer; transition: transform 0.15s; }
+.flow-anno-marker:hover { transform: scale(1.3); }
+.flow-anno-marker circle { fill: #f9ab00; stroke: #fff; stroke-width: 1.5; }
+.flow-anno-marker text {
+  font-size: 9px; fill: #fff; font-weight: 700;
+  text-anchor: middle; dominant-baseline: central; pointer-events: none;
+}
+
+.flow-anno-tooltip {
+  position: fixed; background: #1a1a2e; color: #fff;
+  padding: 10px 14px; border-radius: 8px; font-size: 13px;
+  line-height: 1.5; max-width: 320px; z-index: 210;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  pointer-events: none; opacity: 0; transition: opacity 0.15s;
+}
+.flow-anno-tooltip.show { opacity: 1; pointer-events: auto; }
+.flow-anno-tooltip .flow-anno-delete {
+  display: inline-block; margin-top: 6px; font-size: 12px;
+  color: #f87171; cursor: pointer; pointer-events: auto;
+}
+
+.pitfall-item {
+  background: #fff5f5; border-left: 3px solid #ef4444;
+  padding: 12px 16px; margin-bottom: 12px; border-radius: 0 8px 8px 0;
+}
+.annotation-section {
+  margin-top: 20px; border-top: 1px dashed var(--border); padding-top: 14px;
+}
+.annotation-section-title { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 8px; }
+.annotation-item {
+  background: #fff8e1; border-left: 3px solid #f9ab00;
+  padding: 8px 12px; margin-bottom: 8px; border-radius: 0 6px 6px 0;
+  font-size: 13px; line-height: 1.6; display: flex; align-items: flex-start; gap: 8px;
+}
+.annotation-text { flex: 1; }
+.annotation-delete {
+  border: none; background: none; color: #ccc;
+  cursor: pointer; font-size: 14px; padding: 0 2px; flex-shrink: 0;
+}
+.annotation-delete:hover { color: #e53935; }
+
+/* Clickable annotation units */
+.tab-content-area p,
+.tab-content-area li,
+.tab-content-area pre,
+.tab-content-area dd,
+.tab-content-area td,
+.tab-content-area blockquote {
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s, box-shadow 0.15s;
+  position: relative;
+}
+.tab-content-area p:hover,
+.tab-content-area li:hover,
+.tab-content-area pre:hover,
+.tab-content-area dd:hover,
+.tab-content-area td:hover,
+.tab-content-area blockquote:hover {
+  background: #f0f4ff;
+}
+.tab-content-area .anno-unit-selected {
+  background: #dbeafe !important;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.tab-content-area .annotation-section p,
+.tab-content-area .annotation-section div {
+  cursor: default;
+}
+.tab-content-area .annotation-section p:hover,
+.tab-content-area .annotation-section div:hover {
+  background: transparent;
+}
+
+/* Annotation popup */
+.anno-popup {
+  position: fixed; background: #fff; border-radius: 14px 14px 0 0;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+  padding: 14px 16px; z-index: 300;
+  bottom: 0; left: 0; right: 0; width: 100%;
+  transform: translateY(100%); transition: transform 0.25s ease;
+}
+.anno-popup.show { transform: translateY(0); }
+.anno-selected-preview {
+  font-size: 13px; color: #555; background: #f5f5f5;
+  padding: 8px 12px; border-radius: 6px; margin-bottom: 10px;
+  max-height: 80px; overflow-y: auto; line-height: 1.5;
+  border-left: 3px solid var(--accent);
+}
+.anno-popup-row { display: flex; gap: 8px; align-items: center; }
+.anno-popup-input {
+  flex: 1; border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; font-size: 14px; font-family: inherit; outline: none;
+}
+.anno-popup-input:focus { border-color: var(--accent); }
+.anno-popup-submit {
+  padding: 10px 20px; border: none; border-radius: 8px;
+  background: var(--accent); color: #fff; font-size: 14px;
+  font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.anno-popup-submit:hover { background: #1d4ed8; }
+.anno-popup-cancel {
+  padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
+  background: #fff; color: var(--text-secondary); font-size: 14px;
+  cursor: pointer; white-space: nowrap;
+}
+
+.anno-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.2);
+  z-index: 299; display: none;
+}
+.anno-overlay.show { display: block; }
+
+.anno-highlight {
+  background: #fff3cd; border-bottom: 2px solid #f9ab00;
+  cursor: help; position: relative;
+}
+.anno-highlight:hover { background: #ffe69c; }
+.anno-highlight::after {
+  content: attr(data-comment); position: absolute;
+  bottom: calc(100% + 6px); left: 0;
+  background: #1a1a2e; color: #fff; padding: 8px 12px;
+  border-radius: 6px; font-size: 12px; line-height: 1.5;
+  white-space: pre-wrap; max-width: 320px; min-width: 120px;
+  opacity: 0; pointer-events: none; transition: opacity 0.15s;
+  z-index: 210; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.anno-highlight:hover::after { opacity: 1; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  z-index: 150; display: none; align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: #fff; border-radius: 12px; padding: 24px;
+  max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.modal-close { float: right; border: none; background: none; font-size: 20px; cursor: pointer; color: #999; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #1a1a2e; color: #fff; padding: 10px 24px; border-radius: 8px;
+  font-size: 13px; z-index: 300; opacity: 0; transition: opacity 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* Blueprint bar */
+.blueprint-bar {
+  background: #f0f7ff; border-bottom: 1px solid #bfdbfe;
+  padding: 12px 20px; font-size: 13px; line-height: 1.7;
+  display: none;
+}
+.blueprint-bar.visible { display: block; }
+.blueprint-bar summary {
+  cursor: pointer; font-weight: 600; color: var(--accent); font-size: 14px;
+  list-style: none; display: flex; align-items: center; gap: 6px;
+}
+.blueprint-bar summary::before { content: "▸"; transition: transform 0.2s; }
+.blueprint-bar[open] summary::before { transform: rotate(90deg); }
+.blueprint-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
+  margin-top: 10px;
+}
+.blueprint-cell { }
+.blueprint-cell-title { font-weight: 600; color: var(--text); margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.blueprint-cell-body { color: var(--text-secondary); }
+
+@media (max-width: 900px) {
+  .blueprint-grid { grid-template-columns: 1fr; }
+}
+
+/* Loading */
+.loading-overlay {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 500; font-size: 16px; color: var(--text-secondary);
+}
+.loading-overlay.hidden { display: none; }
+
+/* ===== Mobile ===== */
+@media (max-width: 900px) {
+  :root { --panel-width: 100%; }
+  .flowchart-container.panel-open { margin-right: 0; }
+  .anno-highlight.touch-active::after { opacity: 1; }
+}
+
+/* Legend rows */
+.legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px; }
+.legend-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.progress-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+.progress-item .legend-dot { width: 10px; height: 10px; }
+</style>
+<script>window.__MAP_DATA__ = {"version": "0.1.0", "meta": {"title": "BPC 算法地图", "phase": "Phase 1: 基础 B&P", "project": "C:/Users/ligon/CCA/BCP-Lap", "created": "2026-02-14", "updated": "2026-02-26", "benchmark": {"file": "E-n13-k4", "known_optimal": 290, "source": "CVRPLIB"}, "blueprint": {"core_idea": "Branch-Price-and-Cut 将 CVRP 分解为主问题（路径选择）和子问题（路径生成）。主问题的 LP 松弛通过列生成求解——每轮迭代用对偶值引导子问题（ESPPRC）生成负 reduced cost 的新路径，收敛后得到下界。若 LP 解非整数，则分支定界搜索整数最优。", "data_flow": "初始化 → RMP(LP解+对偶π) → ESPPRC(π→负RC列) → 列检查(加入RMP或收敛) → 整数性检查 → bound剪枝/分支 → 终止。核心循环：RMP↔ESPPRC 通过对偶值π和新列双向通信。", "key_assumptions": "① 车辆同构（容量 Q 相同）；② 客户需求不可拆分；③ 每客户恰好访问一次（set covering ≥ 1）；④ 距离矩阵对称非负；⑤ 初始列保证 RMP 可行。"}, "test_instance": "**T3 基准实例**（3 客户）\n- dist = [[0,3,4,5],[3,0,5,4],[4,5,0,3],[5,4,3,0]]\n- demands = [0,2,3,2], capacity = 4\n- LP/IP 最优 = 20, 最终对偶 π = (6,8,6)\n\n**验证实例**\n| 实例 | 客户数 | 标准最优 | 我们求解 | Gap |\n|------|--------|---------|---------|-----|\n| P-n16-k8 | 15 | 450 | 450 | 0% |\n| E-n13-k4 | 12 | 290 | 290 | 9% |\n| P-n19-k2 | 18 | 212 | 219 | 18% |"}, "graph": {"nodes": [{"id": "start", "label": "开始", "type": "terminal"}, {"id": "01_initialize", "label": "1. 初始化", "sub": "建模 + 初始列", "type": "process"}, {"id": "02_solve_rmp", "label": "2. 求解 RMP", "sub": "LP 松弛", "type": "process"}, {"id": "03_extract_duals", "label": "3. 提取对偶 π", "sub": "影子价格", "type": "process"}, {"id": "04_pricing", "label": "4. 定价 ESPPRC", "sub": "资源约束最短路", "type": "process"}, {"id": "05_column_check", "label": "有负 RC 列？", "sub": "", "type": "decision"}, {"id": "06_integrality_check", "label": "LP 解是整数？", "sub": "", "type": "decision"}, {"id": "07_bound_check", "label": "LB ≥ UB？", "sub": "", "type": "decision"}, {"id": "08_branch", "label": "8. 分支", "sub": "边分支策略", "type": "process"}, {"id": "09_terminate", "label": "输出最优解", "type": "terminal"}], "edges": [{"from": "start", "to": "01_initialize"}, {"from": "01_initialize", "to": "02_solve_rmp"}, {"from": "02_solve_rmp", "to": "03_extract_duals"}, {"from": "03_extract_duals", "to": "04_pricing"}, {"from": "04_pricing", "to": "05_column_check"}, {"from": "05_column_check", "to": "02_solve_rmp", "label": "是（加入新列）"}, {"from": "05_column_check", "to": "06_integrality_check", "label": "否（CG 收敛）"}, {"from": "06_integrality_check", "to": "09_terminate", "label": "是（更新 UB）"}, {"from": "06_integrality_check", "to": "07_bound_check", "label": "否"}, {"from": "07_bound_check", "to": "09_terminate", "label": "是（剪枝）"}, {"from": "07_bound_check", "to": "08_branch", "label": "否"}, {"from": "08_branch", "to": "02_solve_rmp", "label": "子节点入队"}], "regions": [{"id": "cg_loop", "label": "Column Generation Loop", "semantic": "**列生成循环**是 BPC 的内层核心。\n\n**输入**：RMP（含当前列集合）+ 分支约束\n**输出**：收敛的 LP 最优解 $z^*_{LP}$ + 对应的 $\\lambda^*$\n\n**等价关系**：CG 收敛后的 $z^*_{LP}$ 等价于在**全部**指数级列上求解 LP 松弛的最优值（Dantzig-Wolfe 分解定理）。\n\n**循环逻辑**：\n1. 求解 RMP → 获得对偶 $\\pi$\n2. 用 $\\pi$ 引导 ESPPRC 寻找负 RC 列\n3. 有负 RC 列 → 加入 RMP → 回到 1\n4. 无负 RC 列 → LP 最优，退出循环\n\n**收敛保证**：每次加入负 RC 列后 LP 目标严格改善（或不变），有限列 → 有限步收敛。", "nodes": ["02_solve_rmp", "03_extract_duals", "04_pricing", "05_column_check"], "verify": {"pre": [{"desc": "RMP 含可行初始列（所有客户被覆盖）", "check": "all customers covered by initial columns"}, {"desc": "分支约束已正确注入 RMP", "check": "forced/forbidden edges applied"}], "core": [{"desc": "CG 收敛后 z*_LP 等于 SP-LP 全局最优", "level": "L2", "method": "与 Gurobi 直接求 SP-LP 对比（小实例）", "cmd": "pytest src/python/tests/test_cg_convergence.py"}, {"desc": "CG 迭代次数合理（不无限循环）", "level": "L2", "method": "设 max_iter=200，正常实例 <50 轮"}, {"desc": "T3 实例 CG 收敛到 LP=20", "level": "L1", "method": "手算推导：T3 有 5 条可行路径（3 条单客户 + 2 条对称的 {1,3} 组合，{1,2} 和 {2,3} 需求超容量）。最优覆盖 = 路线 [0,1,3,0](cost=12) + [0,2,0](cost=8) = 20。该解本身就是整数解，所以 LP=IP=20。也可用 Gurobi 对 SP-LP 直接求解验证。", "cmd": "pytest src/python/tests/test_cg_convergence.py::test_t3_converge"}], "post": [{"desc": "所有列的 RC ≥ 0（无遗漏负 RC 列）", "check": "最后一轮 pricing 返回空列表"}, {"desc": "z*_LP 是当前 B&B 节点的有效下界", "check": "z_LP <= IP_optimal"}]}}, {"id": "bnb", "label": "Branch-and-Bound", "semantic": "**分支定界框架**是 BPC 的外层搜索。\n\n**输入**：初始 RMP + 初始上界 $UB = +\\infty$\n**输出**：全局最优整数解（或证明无更优解）\n\n**搜索逻辑**：\n1. 从 B&B 队列取出一个节点\n2. 在该节点上运行**列生成循环**得到 LP 最优\n3. LP 解是整数？→ 更新 UB\n4. LP 解非整数？→ 界检查（$LB \\ge UB$ 则剪枝）→ 分支创建子节点\n5. 重复直到队列为空\n\n**DFS 策略**：我们用栈（后进先出）实现深度优先搜索，优先探索 forced 分支（更可能找到可行整数解，快速降低 UB）。\n\n**关键加速**：整数代价剪枝 $\\lceil LB \\rceil \\ge UB$ + Restricted MIP 启发式（root CG 后 IP 求解快速获得初始 UB）。", "nodes": ["02_solve_rmp", "03_extract_duals", "04_pricing", "05_column_check", "06_integrality_check", "07_bound_check", "08_branch"], "verify": {"pre": [{"desc": "初始列已生成，RMP 可行", "check": "RMP initialized with feasible columns"}], "core": [{"desc": "P-n16-k8 精确求解 cost=450, gap=0%", "level": "L3", "method": "端对端测试", "cmd": "pytest src/python/tests/test_e2e.py::test_pn16k8"}, {"desc": "E-n13-k4 找到最优解 290", "level": "L3", "method": "端对端测试"}, {"desc": "所有剪枝节点满足 LB ≥ UB", "level": "L2", "method": "B&B 日志审计"}, {"desc": "最终解通过 checker 验证（容量+覆盖+成本）", "level": "L1", "method": "checker.check_solution()", "cmd": "pytest src/python/tests/test_checker.py"}], "post": [{"desc": "B&B 队列为空（所有节点已处理或剪枝）", "check": "len(queue) == 0"}, {"desc": "UB = 全局最优整数解", "check": "UB == IP_optimal (if proved)"}]}}]}, "contents": {"01_initialize": {"title": "初始化", "overview": "读入 CVRP 实例数据，构造初始可行列（路径），建立限制主问题 RMP。\n\n**输入**：CVRP 实例 — 客户坐标、需求量 $q_i$、车辆容量 $Q$、距离矩阵 $c_{ij}$\n\n**输出**：\n- 限制主问题 RMP（含初始列集合 $\\Omega'$）\n- 初始上界 $UB = +\\infty$\n- B&B 队列（仅含根节点）\n\n### 主问题 (MP) 数学模型\n\n$$\\min \\sum_{r \\in \\Omega} c_r \\lambda_r$$\n\n$$\\text{s.t.} \\quad \\sum_{r \\in \\Omega} a_{ir} \\lambda_r \\ge 1 \\quad \\forall i \\in N$$\n\n$$\\lambda_r \\in \\{0, 1\\} \\quad \\forall r \\in \\Omega$$\n\n其中 $c_r$ = 路径 $r$ 的总距离，$a_{ir}$ = 路径 $r$ 是否经过客户 $i$。\n\n**RMP** 是 MP 的松弛版本：只包含 $\\Omega' \\subset \\Omega$ 的子集列，且 $\\lambda$ 松弛为连续变量。", "how": "### 伪代码\n\n```\nfunction Initialize(instance):\n    N, Q, q, c = parse_instance(instance)\n\n    # 生成初始列：每客户单独一条路径\n    initial_columns = []\n    for i in N:\n        route = [0, i, 0]          # depot -> i -> depot\n        cost = c[0][i] + c[i][0]\n        initial_columns.append((route, cost))\n\n    RMP = build_rmp(N, initial_columns)\n    UB = +infinity\n    queue = [RootNode(RMP)]\n    return RMP, UB, queue\n```\n\n### 关键步骤\n\n1. **读入实例**：解析 CVRPLIB 标准格式（.vrp 文件）\n2. **生成初始列**：每个客户单独配一辆车（一定可行但成本高）\n3. **建 RMP**：目标函数 $\\min \\sum c_r \\lambda_r$，约束为集合覆盖 $\\ge 1$\n4. **初始化 B&B 队列**：放入根节点，$UB = +\\infty$\n\n**为什么需要初始列**：没有初始列 → RMP 不可行 → 无法提取对偶值 → 列生成无法运转。", "verify": {"pre": [{"desc": "实例文件格式正确", "check": "instance.dimension > 0 and instance.capacity > 0"}], "core": [{"desc": "RMP 可行（初始列覆盖所有客户）", "level": "L1", "method": "检查每个客户至少被一条初始路径覆盖", "cmd": "pytest src/python/tests/test_instance.py"}, {"desc": "每条初始路径满足容量约束 Q", "level": "L1", "method": "sum(demands) <= Q for each route"}, {"desc": "距离矩阵对称且非负", "level": "L1", "method": "c[i][j] == c[j][i] and c[i][j] >= 0"}, {"desc": "RMP 可以正常求解", "level": "L1", "method": "调用 LP 求解器返回 OPTIMAL", "cmd": "pytest src/python/tests/test_rmp.py"}], "post": [{"desc": "RMP 对象已构建，可调用 solve()", "check": "rmp.model is not None"}, {"desc": "B&B 队列含且仅含根节点", "check": "len(queue) == 1"}]}, "code": {"files": ["src/python/01_basic_bpc/instance.py", "src/python/01_basic_bpc/rmp.py"], "snippet": "```python\n# instance.py — 实例加载\ndef load_instance(path):\n    inst = vrplib.read_instance(path)\n    n = inst['dimension'] - 1  # 客户数\n    Q = inst['capacity']\n    coords = inst.get('node_coord', None)\n    dist = compute_distance_matrix(coords)  # 或读 EXPLICIT\n    demands = inst['demand']\n    return n, Q, dist, demands\n\n# rmp.py — 初始列生成\ndef make_initial_columns(n, dist):\n    columns = []\n    for i in range(1, n + 1):\n        route = [0, i, 0]\n        cost = dist[0][i] + dist[i][0]\n        columns.append(Column(route, cost, visit={i}))\n    return columns\n```"}, "refs": "- Desrosiers et al. (2005) *A Primer in Column Generation*\n- CVRPLIB: http://vrp.atd-lab.inf.puc-rio.br/", "pitfalls": "- **Windows GBK 编码**：Python 输出含 Unicode 字符会报 UnicodeEncodeError，需 `python -X utf8` 运行\n- **E-n13-k4 是 EXPLICIT 距离**：文件自带距离矩阵，最优值 290（非 EUC_2D 的 247）"}, "02_solve_rmp": {"title": "求解 RMP", "overview": "用 LP 求解器求解 RMP 的 LP 松弛，得到最优解和对偶值。\n\n**输入**：当前 RMP（含所有已生成的列）+ 当前 B&B 节点的分支约束\n\n**输出**：\n- 最优 LP 解 $\\lambda^*$\n- 最优目标值 $z^*_{LP}$（当前节点的下界 LB）\n- 对偶解 $\\pi^*$（传给定价子问题）\n\n| 目的 | 机制 |\n|------|------|\n| 获得下界 LB | $z^*_{LP}$ 是当前 B&B 节点整数最优值的下界 |\n| 获得对偶值 π | 指示「哪些客户最缺覆盖」，引导定价子问题 |", "how": "```python\ndef solve_rmp(rmp, branch_constraints):\n    apply_branch_constraints(rmp, branch_constraints)\n    status = rmp.solve()\n    if status != OPTIMAL:\n        return INFEASIBLE  # 剪枝\n    lambda_star = rmp.get_values()\n    z_LP = rmp.get_objective()\n    pi = rmp.get_dual_values()\n    return lambda_star, z_LP, pi\n```\n\n**没有 LP 解 → 无对偶值 → 定价问题无法定义 → 列生成停滞**\n\n### MIP 端对端验证（小实例）\n\n列生成收敛后的 $z^*_{LP}$ 应 $\\ge$ 紧凑型 MIP 的 LP 松弛值（因为 SP-LP 更紧）。\n\n| 实例 | CG\\_LP | MCF\\_LP | IP | gap% |\n|------|------:|-------:|---:|-----:|\n| T3 (n=3) | 20.00 | 17.50 | 20 | 0.00% |\n| E-n13-k4 | 264.00 | 221.89 | 290 | 8.97% |\n| P-n16-k8 | 441.00 | 377.69 | 450 | 2.00% |", "verify": {"pre": [{"desc": "RMP 含至少一组覆盖所有客户的列", "check": "all customers covered"}, {"desc": "分支约束已正确应用", "check": "branch constraints applied to model"}], "core": [{"desc": "LP 求解器返回 OPTIMAL", "level": "L1", "method": "status == GRB.OPTIMAL", "cmd": "pytest src/python/tests/test_rmp.py"}, {"desc": "所有 λ 值 ≥ 0", "level": "L1", "method": "all(v >= -1e-8 for v in lambda_star)"}, {"desc": "n 个覆盖约束均被满足（每客户 i 一个约束：Σ a_ir λ_r ≥ 1）", "level": "L1", "method": "对每个 i=1..n 检查 coverage_i ≥ 1 - eps"}, {"desc": "z_LP ≤ 已知最优解", "level": "L2", "method": "z_LP <= known_optimal + eps"}, {"desc": "T3 实例 LP=20, dual=(6,8,6)", "level": "L1", "method": "手算验证", "cmd": "pytest src/python/tests/test_rmp.py::test_t3_dual"}], "post": [{"desc": "lambda_star 维度 = 列数", "check": "len(lambda_star) == num_columns"}, {"desc": "pi 维度 = 客户数", "check": "len(pi) == n"}, {"desc": "所有 pi_i ≥ 0", "check": "all(p >= -1e-8 for p in pi)"}]}, "code": {"files": ["src/python/01_basic_bpc/rmp.py"], "snippet": "```python\nclass RMP:\n    def solve(self):\n        self.model.optimize()\n        if self.model.status != GRB.OPTIMAL:\n            return None, None, None, None\n        obj = self.model.ObjVal\n        vals = [v.X for v in self.col_vars]\n        cover_duals = [c.Pi for c in self.cover_constrs]\n        edge_duals = {k: c.Pi for k, c in self.edge_constrs.items()}\n        return obj, vals, cover_duals, edge_duals\n```"}, "refs": "- Lübbecke & Desrosiers (2005) *Selected Topics in Column Generation*\n- Gurobi 文档: LP 对偶值获取", "pitfalls": "- **Gurobi `addConstr(0 >= 1)`**：Python 中 `0 >= 1` 先被求值为 `False`，正确写法用 `gp.LinExpr()`\n- **CG\\_LP > MCF\\_LP 是正常的**：CG 求的是 SP-LP（更紧），MCF 是聚合单商品流松弛"}, "03_extract_duals": {"title": "提取对偶 π", "overview": "从 LP 解中提取覆盖约束的对偶值（影子价格），传递给定价子问题。\n\n**输入**：RMP 的最优 LP 解\n\n**输出**：对偶向量 $\\pi = (\\pi_1, \\ldots, \\pi_n)$\n\n$$\\pi_i = \\text{覆盖约束 } i \\text{ 的影子价格}$$\n\n含义：多覆盖客户 $i$ 一次，目标值可减少 $\\pi_i$。$\\pi_i \\ge 0$（因为覆盖约束是 $\\ge$ 型）。\n\n对偶值是主问题和子问题之间的**桥梁**——告诉子问题「当前最缺哪些客户的覆盖，值多少钱」。", "how": "```python\ndef extract_duals(rmp):\n    pi = []\n    for i in customers:\n        pi.append(rmp.get_dual(covering_constraint[i]))\n    return pi\n```\n\n### 关键步骤\n\n1. 调用 LP 求解器的对偶值接口\n2. 注意约束方向：$\\ge$ 约束的对偶值 $\\ge 0$\n3. 如果有额外约束（如车辆数约束），也要提取其对偶值\n\n**注意**：这一步在实现中通常与「求解 RMP」合并，单独列出是为了教学清晰。", "verify": {"pre": [{"desc": "RMP 已求解且状态为 OPTIMAL", "check": "rmp.status == OPTIMAL"}], "core": [{"desc": "所有 π_i ≥ 0", "level": "L1", "method": "all(pi_i >= -1e-8)", "cmd": "pytest src/python/tests/test_rmp.py"}, {"desc": "π 维度 = 客户数 n", "level": "L1", "method": "len(pi) == n"}, {"desc": "互补松弛条件成立", "level": "L2", "method": "约束松弛时 π_i = 0"}], "post": [{"desc": "π 向量可传递给定价子问题", "check": "len(pi) == n and all finite"}]}, "code": {"files": ["src/python/01_basic_bpc/rmp.py"], "snippet": "```python\n# rmp.py — solve() 返回 cover_duals\ncover_duals = [c.Pi for c in self.cover_constrs]\nedge_duals = {k: c.Pi for k, c in self.edge_constrs.items()}\n```"}, "refs": "- 线性规划对偶理论\n- Gurobi `Constr.Pi` 属性\n\n### Gurobi 对偶值符号约定\n\nGurobi 的 `Pi` 属性遵循以下规则：\n\n| 约束类型 | Pi 符号 | 原因 |\n|---------|--------|------|\n| $\\ge$ (覆盖约束) | $\\pi_i \\ge 0$ | 放松右端项 $\\to$ 目标改善 |\n| $\\le$ | $\\pi \\le 0$ | |\n| $=$ | 无限制 | |\n\n我们的覆盖约束是 $\\sum a_{ir}\\lambda_r \\ge 1$，所以 `Pi` $\\ge 0$，可直接用作 reduced cost 的减项。若改为 $\\le$ 型约束则符号反转，需取负。"}, "04_pricing": {"title": "定价子问题 (ESPPRC)", "overview": "在修改后的图上求解资源约束最短路（ESPPRC），找到能改善 RMP 目标的新列。\n\n**输入**：距离矩阵 $c_{ij}$、需求 $q_i$、容量 $Q$、对偶值 $\\pi$\n\n**输出**：一组 reduced cost < 0 的新路径（列），或报告「没有负 RC 列」\n\n### Reduced Cost 公式\n\n$$\\bar{c}_r = c_r - \\sum_{i \\in r} \\pi_i$$\n\n$\\bar{c}_r < 0$ ⟹ 加入该列能改善目标。等价地，在图上把边权修改为 $c_{ij} - \\pi_j$，然后找最短路。\n\n### ESPPRC vs SPPRC\n\n- **ESPPRC**（Elementary）：路径不允许重复访问 → NP-hard → 精确但慢\n- **SPPRC**（允许环）：多项式 → 快但可能生成不合法路径", "how": "### Label-Setting 算法\n\n```\nfunction PricingESPPRC(N, c, q, Q, pi):\n    c_bar[i][j] = c[i][j] - pi[j]  for all (i,j)\n\n    # Label = (node, cost, load, visited_bitmask)\n    labels = {0: [(0, 0, 0, 0b0)]}  # depot\n\n    for each label L = (node, cost, load, visited):\n        for each neighbor j not in visited:\n            if load + q[j] <= Q:\n                new_label = (j, cost + c_bar[node][j],\n                             load + q[j],\n                             visited | (1<<j))\n                # Dominance 检查\n                if not dominated(new_label, labels[j]):\n                    labels[j].append(new_label)\n\n    # 收集回depot且RC<0的路径\n    return [L for L in all_labels if L.cost + c_bar[L.node][0] < 0]\n```\n\n### 关键步骤\n\n1. **修改边权**：$\\bar{c}_{ij} = c_{ij} - \\pi_j$\n2. **Label 扩展**：从 depot 出发，逐步扩展\n3. **资源约束**：累计需求不超 $Q$\n4. **Dominance**：同节点同已访问集合，只保留 cost 最小的 label\n5. **收集负 RC 列**：回到 depot 后 RC < 0 即有用", "verify": {"pre": [{"desc": "对偶值 π 已提取且维度正确", "check": "len(pi) == n"}, {"desc": "修改后的边权 c_bar 已计算", "check": "c_bar[i][j] = c[i][j] - pi[j]"}], "core": [{"desc": "所有生成路径满足容量 Q", "level": "L1", "method": "sum(demands on route) <= Q", "cmd": "pytest src/python/tests/test_pricing.py"}, {"desc": "所有路径是 elementary（无重复客户）", "level": "L1", "method": "len(route) == len(set(route))"}, {"desc": "RC 计算正确：c_r - Σπ_i", "level": "L1", "method": "对比 label cost 与手动计算"}, {"desc": "MIP oracle 验证：ESPPRC 最优 RC = MIP 最优 RC", "level": "L1", "method": "将定价问题建为 MIP（二元变量 y_i 选客户、x_ij 选边，容量+流守恒+子回路消除），求解后最优目标 = 最小 RC。与 label-setting 结果对比，差 < 1e-6", "cmd": "pytest src/python/tests/test_pricing.py::test_mip_oracle"}], "post": [{"desc": "返回的列 RC 均 < 0，或列表为空（CG 收敛）", "check": "all(rc < -1e-8 for rc in results) or len(results) == 0"}]}, "code": {"files": ["src/python/01_basic_bpc/pricing.py"], "snippet": "```python\ndef solve_espprc(n, dist, demands, cap, duals, edge_duals=None,\n                 forced=None, forbidden=None, max_cols=500):\n    # 修改边权\n    c_bar = [[dist[i][j] - (duals[j-1] if j>0 else 0)\n              for j in range(n+1)] for i in range(n+1)]\n    # Label: (cost, load, node, visited_bitmask, path)\n    queue = deque([(0.0, 0, 0, 0, [0])])\n    best = {}  # (node, visited) -> best_cost\n    neg_rc_cols = []\n    while queue:\n        cost, load, node, visited, path = queue.popleft()\n        for j in range(1, n+1):\n            if visited & (1 << j): continue\n            if load + demands[j] > cap: continue\n            nc = cost + c_bar[node][j]\n            nv = visited | (1 << j)\n            key = (j, nv)\n            if key in best and best[key] <= nc + 1e-9:\n                continue\n            best[key] = nc\n            queue.append((nc, load+demands[j], j, nv, path+[j]))\n            # 检查回 depot\n            rc = nc + c_bar[j][0]\n            if rc < -1e-8:\n                neg_rc_cols.append((path+[j,0], rc))\n    return neg_rc_cols[:max_cols]\n```"}, "refs": "- Irnich & Desaulniers (2005) *Shortest Path Problems with Resource Constraints*\n- Righini & Salani (2006) *Symmetry helps: Bounded bi-directional dynamic programming for ESPPRC*", "pitfalls": "- **bitmask 定价 n>18 后爆炸**：$2^n$ 状态空间，需 ng-route 松弛或 bucket graph\n- **`list.pop(0)` 性能**：O(n) 复杂度，应用 `collections.deque.popleft()`（O(1)）"}, "05_column_check": {"title": "负 RC 列检查", "overview": "列生成的终止条件判断：如果没有负 RC 列，说明当前 LP 松弛已达最优。\n\n**输入**：定价子问题的输出 — 一组候选列（可能为空）\n\n**输出**：\n- **有负 RC 列** → 加入 RMP，回到步骤 2 继续迭代\n- **无负 RC 列** → 列生成收敛，进入整数性检查\n\n### 核心定理（对偶理论）\n\n> 不存在 $\\bar{c}_r < 0$ 的列 $\\Leftrightarrow$ 当前 LP 松弛已是**全局最优**（在所有列上）", "how": "```python\ndef column_check(new_columns, rmp):\n    if len(new_columns) == 0:\n        return CONVERGED  # CG 收敛\n    for col in new_columns:\n        rmp.add_column(col.cost, col.coverage)\n    return CONTINUE\n```\n\n**实践技巧**：通常一次加入多条负 RC 列（而非只加最优的一条），可加速收敛。我们的实现限制 `max_cols=500`。", "verify": {"pre": [{"desc": "定价子问题已完成求解", "check": "pricing result available"}], "core": [{"desc": "新列的 cost 和 coverage 系数正确", "level": "L1", "method": "对比原始距离和路径"}, {"desc": "CG 收敛时所有列 RC ≥ -ε（ε=1e-8）", "level": "L2", "method": "最后一轮定价以 RC < -1e-8 为阈值，返回空列表即收敛。注意：LP 求解器的对偶值本身有 ~1e-10 级数值噪声，定价阈值不能设得比这更紧。我们用 1e-8 作为负 RC 判定阈值，既避免误报（噪声触发）又不遗漏真正的负 RC 列。", "cmd": "pytest src/python/tests/test_cg_convergence.py"}, {"desc": "迭代次数合理（不无限循环）", "level": "L2", "method": "iter_count < max_iters"}], "post": [{"desc": "RMP 列集已更新 或 CG 已收敛", "check": "columns added or converged flag set"}]}, "code": {"files": ["src/python/01_basic_bpc/main.py"], "snippet": "```python\n# main.py — solve_cg() 中的列检查\nnew_cols = solve_espprc(n, dist, demands, cap, duals, ...)\nif not new_cols:\n    break  # CG 收敛\nfor route, rc in new_cols:\n    visit = set(v for v in route if v != 0)\n    cost = sum(dist[route[i]][route[i+1]] for i in range(len(route)-1))\n    rmp.add_column(cost, visit, route)\n```"}}, "06_integrality_check": {"title": "整数性检查", "overview": "检查 LP 松弛解是否恰好是整数（每条路径要么选要么不选）。\n\n**输入**：CG 收敛后的 LP 最优解 $\\lambda^*$\n\n**输出**：\n- **是整数** → 找到可行整数解，更新 UB\n- **非整数** → 需要分支\n\n如果 LP 解恰好是整数，则它也是 **IP 的最优解**（因为 $LP \\le IP$，整数可行解 = 上界 = 下界）。", "how": "```python\ndef integrality_check(lambda_star, z_LP, UB, best_sol):\n    EPS = 1e-6\n    is_integer = all(\n        abs(v - round(v)) < EPS for v in lambda_star\n    )\n    if is_integer:\n        if z_LP < UB:\n            UB = z_LP\n            best_sol = extract_solution(lambda_star)\n        return INTEGER, UB, best_sol\n    else:\n        return FRACTIONAL, UB, best_sol\n```\n\n### 关键步骤\n\n1. 对每个 $\\lambda_r$ 检查是否接近 0 或 1（容差 $\\varepsilon = 10^{-6}$）\n2. 全部整数 → 更新 UB 和最优解\n3. 有分数 → 需要分支", "verify": {"pre": [{"desc": "CG 已收敛（无负 RC 列）", "check": "cg_converged == True"}], "core": [{"desc": "整数判断容差设置合理", "level": "L1", "method": "EPS = 1e-6"}, {"desc": "UB 只减不增", "level": "L1", "method": "new_UB <= old_UB", "cmd": "pytest src/python/tests/test_branch.py"}, {"desc": "整数解对应可行路径（覆盖+容量）", "level": "L1", "method": "checker.verify(solution)"}], "post": [{"desc": "返回 INTEGER 或 FRACTIONAL 状态", "check": "status in {INTEGER, FRACTIONAL}"}]}, "code": {"files": ["src/python/01_basic_bpc/utils.py"], "snippet": "```python\ndef is_integer_solution(vals, tol=1e-6):\n    return all(abs(v - round(v)) < tol for v in vals)\n```"}}, "07_bound_check": {"title": "界检查 (Bound Check)", "overview": "如果当前节点的下界已经不优于已知最优解，就剪枝。\n\n**输入**：当前节点下界 $LB = z^*_{LP}$，全局上界 $UB$\n\n**输出**：\n- $LB \\ge UB$ → **剪枝**（该节点不可能产生更优解）\n- $LB < UB$ → 继续分支探索\n\n### 原理\n\n$$LB \\le IP^* \\le UB$$\n\n若 $LB \\ge UB$ → 该子树的 $IP^* \\ge LB \\ge UB$ → 不可能比已知解更好 → 剪枝安全。\n\n**整数代价剪枝**：对整数距离问题，可用 $\\lceil LB \\rceil \\ge UB$ 更强地剪枝（如 289.33 vs UB=290 可剪枝）。", "how": "```python\ndef bound_check(LB, UB):\n    EPS = 1e-6\n    if math.ceil(LB - EPS) >= UB:  # 整数代价剪枝\n        return PRUNE\n    else:\n        return BRANCH\n```\n\n### 关键步骤\n\n1. 比较 LB 与 UB（浮点精度用 ε 容差）\n2. 剪枝条件包括 $LB = UB$（无改善空间）\n3. 整数距离问题用 $\\lceil LB \\rceil \\ge UB$ 更强", "verify": {"pre": [{"desc": "LB 是 CG 收敛后的 LP 最优值", "check": "LB == z_LP after CG convergence"}, {"desc": "UB 是全局最优整数解的目标值", "check": "UB == best integer objective"}], "core": [{"desc": "浮点比较使用容差 ε", "level": "L1", "method": "代码审查"}, {"desc": "剪枝后节点不再被访问", "level": "L2", "method": "B&B 队列不含已剪枝节点", "cmd": "pytest src/python/tests/test_branch.py"}, {"desc": "整数代价剪枝有效", "level": "L2", "method": "ceil(289.33) >= 290 → prune"}], "post": [{"desc": "返回 PRUNE 或 BRANCH", "check": "result in {PRUNE, BRANCH}"}]}, "code": {"files": ["src/python/01_basic_bpc/main.py"], "snippet": "```python\n# main.py — B&B 循环中的界检查\nif math.ceil(lb - 1e-9) >= ub:\n    stats['pruned'] += 1\n    continue  # 剪枝\n```"}, "pitfalls": "- **整数代价剪枝**显著减少无用探索：289.33 vs UB=290 可剪枝，节省大量 B&B 节点"}, "08_branch": {"title": "分支 (Branch)", "overview": "在分数解上选择分支变量，创建子节点以消除分数性。\n\n**输入**：当前节点的 LP 解 $\\lambda^*$（含分数值）\n\n**输出**：两个子节点，各自附加不同的分支约束\n\n### Phase 1 策略：边分支\n\n选择使用分数次的边 $(i, j)$：\n- 左子节点：$x_{ij} = 0$（禁用该边）\n- 右子节点：$x_{ij} = 1$（强制使用该边）", "how": "### 边分支伪代码\n\n```\nfunction Branch(lambda_star, columns, queue, node):\n    # 1. 计算边的聚合流量\n    x[i][j] = sum(lambda_r * [r 使用边 (i,j)])\n\n    # 2. 选最接近 0.5 的分数边\n    best_edge = argmin |x[i][j] - 0.5|\n        where 0 < x[i][j] < 1\n\n    # 3. 创建子节点\n    left  = node.copy(); left.forbid(i, j)   # x_ij = 0\n    right = node.copy(); right.force(i, j)   # x_ij = 1\n    queue.push(left); queue.push(right)\n```\n\n### 关键步骤\n\n1. **聚合边流**：从 $\\lambda$ 解反算 $x_{ij}$\n2. **选分支边**：$x_{ij}$ 最接近 0.5（分支平衡性最好）\n3. **创建子节点**：左右各一个，附加互斥边约束\n4. **入队**：DFS 策略（栈），先探索右子节点（forced 更可能可行）", "verify": {"pre": [{"desc": "LP 解含分数值", "check": "not is_integer_solution(lambda_star)"}], "core": [{"desc": "分支变量确实是分数值", "level": "L1", "method": "0 < x[i][j] < 1", "cmd": "pytest src/python/tests/test_branch.py"}, {"desc": "左右子节点约束互补", "level": "L1", "method": "left.forbidden ∩ right.forced = {(i,j)}"}, {"desc": "子节点继承父节点所有分支约束", "level": "L1", "method": "child.constraints ⊇ parent.constraints"}, {"desc": "手造 λ 验算分支选择", "level": "L1", "method": "给定 λ 值验证选出的边", "cmd": "pytest src/python/tests/test_branch.py::test_branch_selection"}], "post": [{"desc": "B&B 队列新增 2 个子节点", "check": "len(queue) increased by 2"}]}, "code": {"files": ["src/python/01_basic_bpc/branch.py"], "snippet": "```python\ndef select_branch_edge(vals, columns, n):\n    \"\"\"选最接近 0.5 的分数边\"\"\"\n    x = defaultdict(float)\n    for val, col in zip(vals, columns):\n        if val < 1e-8: continue\n        for k in range(len(col.route)-1):\n            i, j = col.route[k], col.route[k+1]\n            a, b = min(i,j), max(i,j)\n            x[(a,b)] += val\n    best, best_frac = None, 1.0\n    for (a,b), flow in x.items():\n        if flow > 1e-6 and flow < 1-1e-6:\n            frac = abs(flow - 0.5)\n            if frac < best_frac:\n                best, best_frac = (a,b), frac\n    return best\n```"}, "pitfalls": "- **forced 分支易导致不可行**（~50% 节点）：artificial variables 必须有，否则 RMP 报 infeasible\n- **Restricted MIP 启发式**比 nearest-neighbor 强得多（290 vs 352）"}, "09_terminate": {"title": "输出最优解", "overview": "B&B 队列清空意味着所有可能的整数解空间已被探索或剪枝。此时 UB 就是全局最优。\n\n**输入**：B&B 队列为空 + 全局最优整数解 best\\_sol 和 UB\n\n**输出**：最优解（路径集合 + 总成本）+ 求解统计\n\n### 为什么可以终止\n\n队列空意味着所有 B&B 节点要么：\n- (a) 剪枝（$LB \\ge UB$）\n- (b) 产生整数解（已更新 UB）\n- (c) 不可行\n\n因此 $UB$ = 全局最优整数解。", "how": "```python\ndef terminate(UB, best_sol, stats):\n    if UB == float('inf'):\n        print(\"No feasible solution found\")\n        return\n    print(f\"Optimal cost: {UB}\")\n    print(f\"Routes: {best_sol}\")\n    print(f\"B&B nodes explored: {stats['nodes']}\")\n    print(f\"Total CG iterations: {stats['cg_iters']}\")\n    print(f\"Gap: {(UB - stats['root_lb']) / UB * 100:.2f}%\")\n```", "verify": {"pre": [{"desc": "B&B 队列为空", "check": "len(queue) == 0"}], "core": [{"desc": "每条路径满足容量约束 Q", "level": "L1", "method": "checker.verify()", "cmd": "pytest src/python/tests/test_e2e.py"}, {"desc": "所有客户被恰好覆盖一次", "level": "L1", "method": "checker.verify()"}, {"desc": "目标值 = 所有选中路径距离之和", "level": "L1", "method": "checker.verify()", "cmd": "pytest src/python/tests/test_checker.py"}, {"desc": "P-n16-k8 精确求解 cost=450", "level": "L3", "method": "端对端测试", "cmd": "pytest src/python/tests/test_e2e.py::test_pn16k8"}], "post": [{"desc": "输出完整求解统计", "check": "stats printed"}]}, "code": {"files": ["src/python/01_basic_bpc/main.py", "src/python/01_basic_bpc/checker.py"], "snippet": "```python\n# checker.py — 解验证\ndef check_solution(routes, dist, demands, capacity, n_customers):\n    visited = set()\n    total_cost = 0\n    for route in routes:\n        load = sum(demands[v] for v in route if v != 0)\n        assert load <= capacity, f\"Capacity violated: {load} > {capacity}\"\n        for v in route:\n            if v != 0:\n                assert v not in visited, f\"Customer {v} visited twice\"\n                visited.add(v)\n        total_cost += route_cost(route, dist)\n    assert visited == set(range(1, n_customers+1)), \"Not all customers covered\"\n    return total_cost\n```"}}}, "state": {"nodes": {"01_initialize": {"status": "implemented", "verify_results": {"pre": [true], "core": [true, true, true, true], "post": [true, true]}}, "02_solve_rmp": {"status": "implemented", "verify_results": {"pre": [true, true], "core": [true, true, true, true, true], "post": [true, true, true]}}, "03_extract_duals": {"status": "implemented", "verify_results": {"pre": [true], "core": [true, true, true], "post": [true]}}, "04_pricing": {"status": "implemented", "verify_results": {"pre": [true, true], "core": [true, true, true, true], "post": [true]}}, "05_column_check": {"status": "implemented", "verify_results": {"pre": [true], "core": [true, true, true], "post": [true]}}, "06_integrality_check": {"status": "implemented", "verify_results": {"pre": [true], "core": [true, true, true], "post": [true]}}, "07_bound_check": {"status": "implemented", "verify_results": {"pre": [true, true], "core": [true, true, true], "post": [true]}}, "08_branch": {"status": "implemented", "verify_results": {"pre": [true], "core": [true, true, true, true], "post": [true]}}, "09_terminate": {"status": "implemented", "verify_results": {"pre": [true], "core": [true, true, true, true], "post": [true]}}}, "annotations": {"flow": [], "node": []}}};</script>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loadingOverlay">Loading algorithm map...</div>
+
+<!-- ===== Header ===== -->
+<div class="header">
+  <h1 id="mapTitle">算法地图</h1>
+  <span class="phase-badge" id="mapPhase"></span>
+  <div class="header-spacer"></div>
+  <div class="progress-mini">
+    <span id="progressText">0/0</span>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar" style="width:0%"></div></div>
+  </div>
+  <button class="header-btn" onclick="showModal('legend')">图例</button>
+  <button class="header-btn" onclick="showModal('progress')">进度总览</button>
+  <button class="header-btn anno-mode-btn" id="annoModeBtn" onclick="toggleAnnoMode()">批注模式</button>
+  <button class="header-btn" onclick="exportStandalone()" title="生成独立 HTML，可离线查看和批注">导出</button>
+</div>
+
+<!-- Blueprint -->
+<details class="blueprint-bar" id="blueprintBar">
+  <summary>算法蓝图</summary>
+  <div class="blueprint-grid">
+    <div class="blueprint-cell"><div class="blueprint-cell-title">核心思路</div><div class="blueprint-cell-body" id="bpCoreIdea"></div></div>
+    <div class="blueprint-cell"><div class="blueprint-cell-title">数据流</div><div class="blueprint-cell-body" id="bpDataFlow"></div></div>
+    <div class="blueprint-cell"><div class="blueprint-cell-title">关键假设</div><div class="blueprint-cell-body" id="bpAssumptions"></div></div>
+  </div>
+</details>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ===== Main ===== -->
+<div class="main">
+  <div class="flowchart-container" id="flowchartContainer">
+    <svg class="flowchart" id="flowchartSvg">
+      <defs>
+        <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" class="arrowhead"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="panel" id="panel">
+    <div class="panel-header">
+      <h2 id="panelTitle"></h2>
+      <button class="panel-close" onclick="closePanel()">&times;</button>
+    </div>
+    <div class="panel-status">
+      <span>状态：</span>
+      <select id="panelStatusSelect"></select>
+      <button class="header-btn-export" onclick="submitFeedback()" style="margin-left:auto">提交反馈</button>
+    </div>
+    <div class="tab-bar" id="tabBar">
+      <button class="tab-btn active" data-tab="overview">概述</button>
+      <button class="tab-btn" data-tab="how">How</button>
+      <button class="tab-btn" data-tab="verify">Verify</button>
+      <button class="tab-btn" data-tab="code">Code</button>
+      <button class="tab-btn" data-tab="refs">参考</button>
+      <button class="tab-btn" data-tab="pitfalls">踩坑</button>
+    </div>
+    <div class="tab-content-area">
+      <div class="tab-pane active" id="pane-overview"></div>
+      <div class="tab-pane" id="pane-how"></div>
+      <div class="tab-pane" id="pane-verify"></div>
+      <div class="tab-pane" id="pane-code"></div>
+      <div class="tab-pane" id="pane-refs"></div>
+      <div class="tab-pane" id="pane-pitfalls"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Legend Modal -->
+<div class="modal-overlay" id="modal-legend">
+  <div class="modal">
+    <button class="modal-close" onclick="hideModal('legend')">&times;</button>
+    <h2>图例</h2>
+    <h3 style="font-size:14px;margin:16px 0 8px">节点形状</h3>
+    <div class="legend-row"><span style="display:inline-block;width:30px;height:18px;background:var(--node-process);border:2px solid var(--node-process-stroke);border-radius:4px"></span><span>处理步骤</span></div>
+    <div class="legend-row"><span style="display:inline-block;width:22px;height:22px;background:var(--node-decision);border:2px solid var(--node-decision-stroke);transform:rotate(45deg)"></span><span style="margin-left:4px">判断节点</span></div>
+    <div class="legend-row"><span style="display:inline-block;width:30px;height:18px;background:var(--node-terminal);border:2px solid var(--node-terminal-stroke);border-radius:50%"></span><span>起止节点</span></div>
+    <h3 style="font-size:14px;margin:16px 0 8px">节点状态</h3>
+    <div class="legend-row"><div class="legend-dot" style="background:#d1d5db"></div><span>未开始</span></div>
+    <div class="legend-row"><div class="legend-dot" style="background:#f97316"></div><span>讨论中</span></div>
+    <div class="legend-row"><div class="legend-dot" style="background:#3b82f6"></div><span>理论确认</span></div>
+    <div class="legend-row"><div class="legend-dot" style="background:#22c55e"></div><span>已实现</span></div>
+    <div class="legend-row"><div class="legend-dot" style="background:#15803d"></div><span>已验证</span></div>
+    <h3 style="font-size:14px;margin:16px 0 8px">区域</h3>
+    <div class="legend-row" style="gap:8px">
+      <span style="border:1px dashed #2563eb;padding:2px 8px;border-radius:4px;font-size:12px;color:#2563eb">虚线框</span>
+      <span>算法循环区域</span>
+    </div>
+  </div>
+</div>
+
+<!-- Progress Modal -->
+<div class="modal-overlay" id="modal-progress">
+  <div class="modal">
+    <button class="modal-close" onclick="hideModal('progress')">&times;</button>
+    <h2>进度总览</h2>
+    <div id="progressList" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<script>
+// ===================================================================
+//  Global state — populated after JSON load
+// ===================================================================
+let mapData = null;       // The full JSON
+let GRAPH_NODES = [];
+let GRAPH_EDGES = [];
+let REGIONS = [];
+let CONTENT_NODES = [];   // Node IDs that have content (equivalent to TEACHING_NODES)
+let PROCESS_CONTENT_NODES = []; // Process-type nodes with content (for progress tracking)
+let CONTENTS = {};        // mapData.contents
+let dagreGraph = null;    // dagre layout result
+
+// ===================================================================
+//  Markdown rendering with LaTeX math support
+// ===================================================================
+function renderMd(md) {
+  if (!md) return '<p style="color:#999">暂无内容。</p>';
+
+  // Pre-process: protect LaTeX blocks from marked
+  const blocks = [];
+  let processed = md;
+
+  // Display math: $$...$$
+  processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (_, tex) => {
+    const idx = blocks.length;
+    try { blocks.push(katex.renderToString(tex.trim(), { displayMode: true, throwOnError: false })); }
+    catch { blocks.push('<code>' + tex.trim() + '</code>'); }
+    return `%%MATHBLOCK_${idx}%%`;
+  });
+
+  // Inline math: $...$  (but not $$)
+  processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, tex) => {
+    const idx = blocks.length;
+    try { blocks.push(katex.renderToString(tex.trim(), { displayMode: false, throwOnError: false })); }
+    catch { blocks.push('<code>' + tex.trim() + '</code>'); }
+    return `%%MATHBLOCK_${idx}%%`;
+  });
+
+  // Run marked
+  let html = marked.parse(processed);
+
+  // Restore math blocks
+  html = html.replace(/%%MATHBLOCK_(\d+)%%/g, (_, idx) => blocks[parseInt(idx)]);
+
+  return html;
+}
+
+// ===================================================================
+//  Load JSON
+// ===================================================================
+async function loadMap() {
+  // Standalone mode: JSON embedded directly in HTML (window.__MAP_DATA__)
+  if (window.__MAP_DATA__) {
+    mapData = window.__MAP_DATA__;
+  } else {
+    const params = new URLSearchParams(location.search);
+    let src = params.get("src") || "../examples/bpc-phase1.json";
+    try {
+      const resp = await fetch(src);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      mapData = await resp.json();
+    } catch (err) {
+      document.getElementById("loadingOverlay").textContent =
+        `Failed to load: ${src}\n${err.message}\n\nUsage: render.html?src=path/to/map.json`;
+      return;
+    }
+  }
+
+  // Populate globals
+  GRAPH_NODES = mapData.graph.nodes;
+  GRAPH_EDGES = mapData.graph.edges;
+  REGIONS = mapData.graph.regions || [];
+  CONTENTS = mapData.contents || {};
+  CONTENT_NODES = Object.keys(CONTENTS);
+  PROCESS_CONTENT_NODES = CONTENT_NODES.filter(id => {
+    const node = GRAPH_NODES.find(n => n.id === id);
+    return node && node.type === "process";
+  });
+
+  // Header
+  document.getElementById("mapTitle").textContent = mapData.meta.title || "算法地图";
+  const phase = mapData.meta.phase;
+  const badge = document.getElementById("mapPhase");
+  if (phase) { badge.textContent = phase; } else { badge.style.display = "none"; }
+  document.title = mapData.meta.title || "算法地图";
+
+  // Blueprint
+  const bp = mapData.meta.blueprint;
+  if (bp && (bp.core_idea || bp.data_flow || bp.key_assumptions)) {
+    document.getElementById("bpCoreIdea").textContent = bp.core_idea || "";
+    document.getElementById("bpDataFlow").textContent = bp.data_flow || "";
+    document.getElementById("bpAssumptions").textContent = bp.key_assumptions || "";
+    document.getElementById("blueprintBar").classList.add("visible");
+  }
+
+  // Init state
+  initState();
+
+  // Layout and render
+  dagreGraph = layoutGraph();
+  renderFlowchart(dagreGraph);
+  renderStatusDots();
+  updateProgress();
+  renderFlowAnnotations();
+
+  // Hide loading
+  document.getElementById("loadingOverlay").classList.add("hidden");
+}
+
+// ===================================================================
+//  State Management
+// ===================================================================
+const STATE_VERSION = 4;
+let state = {};
+
+function stateKey() {
+  return "algomap_" + (mapData?.meta?.title || "default").replace(/\s+/g, "_");
+}
+
+function defaultState() {
+  return { version: STATE_VERSION, statuses: {}, verifyChecks: {}, annotations: {}, flowAnnotations: {} };
+}
+
+function initState() {
+  // Start from JSON state if available
+  const base = defaultState();
+
+  if (mapData.state) {
+    // Import node statuses
+    if (mapData.state.nodes) {
+      for (const [nid, ns] of Object.entries(mapData.state.nodes)) {
+        if (ns.status) base.statuses[nid] = ns.status;
+        if (ns.verify_results) {
+          base.verifyChecks[nid] = {};
+          const vr = ns.verify_results;
+          let idx = 0;
+          for (const layer of ["pre", "core", "post"]) {
+            if (vr[layer]) {
+              for (const val of vr[layer]) {
+                if (val === true) base.verifyChecks[nid][idx] = true;
+                idx++;
+              }
+            }
+          }
+        }
+      }
+    }
+    // Import annotations
+    if (mapData.state.annotations) {
+      if (mapData.state.annotations.flow) {
+        for (const a of mapData.state.annotations.flow) {
+          if (!base.flowAnnotations[a.target]) base.flowAnnotations[a.target] = [];
+          base.flowAnnotations[a.target].push({ comment: a.text, time: a.time });
+        }
+      }
+      if (mapData.state.annotations.node) {
+        for (const a of mapData.state.annotations.node) {
+          if (!base.annotations[a.target]) base.annotations[a.target] = {};
+          if (!base.annotations[a.target][a.tab]) base.annotations[a.target][a.tab] = [];
+          base.annotations[a.target][a.tab].push({ text: a.anchor || "", comment: a.text });
+        }
+      }
+    }
+  }
+
+  // Merge localStorage (local annotations) with JSON (authoritative statuses)
+  // JSON state is the authority for statuses and verifyChecks (written by AI during Build).
+  // localStorage preserves user's local annotations that haven't been exported yet.
+  try {
+    const raw = localStorage.getItem(stateKey());
+    if (raw) {
+      const local = JSON.parse(raw);
+      if (local.version === STATE_VERSION) {
+        // Keep local annotations (user edits), but statuses/verifyChecks come from JSON
+        if (local.annotations) base.annotations = local.annotations;
+        if (local.flowAnnotations) base.flowAnnotations = local.flowAnnotations;
+      }
+    }
+  } catch {}
+
+  state = base;
+  saveState();
+}
+
+function saveState() {
+  localStorage.setItem(stateKey(), JSON.stringify(state));
+}
+
+// ===================================================================
+//  Dagre Layout
+// ===================================================================
+function layoutGraph() {
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({ rankdir: "TB", nodesep: 60, ranksep: 70, edgesep: 20, marginx: 40, marginy: 40 });
+  g.setDefaultEdgeLabel(() => ({}));
+
+  const dims = {
+    process:  { w: 200, h: 52 },
+    decision: { w: 160, h: 70 },
+    terminal: { w: 130, h: 48 },
+    auxiliary:{ w: 120, h: 32 },
+  };
+
+  GRAPH_NODES.forEach(n => {
+    const d = dims[n.type] || dims.process;
+    g.setNode(n.id, { width: d.w, height: d.h, ...n });
+  });
+
+  GRAPH_EDGES.forEach(e => {
+    g.setEdge(e.from, e.to, { label: e.label || "" });
+  });
+
+  dagre.layout(g);
+
+  // Post-process: clip edge endpoints to actual shapes (diamond/ellipse)
+  g.edges().forEach(e => {
+    const edge = g.edge(e);
+    const pts = edge.points;
+    if (!pts || pts.length < 2) return;
+
+    // Clip first point to source shape boundary
+    const src = g.node(e.v);
+    if (src && src.type !== "process" && src.type !== "auxiliary") {
+      const clipped = clipToShape(src, pts[1].x, pts[1].y);
+      pts[0] = clipped;
+    }
+
+    // Clip last point to target shape boundary
+    const tgt = g.node(e.w);
+    if (tgt && tgt.type !== "process" && tgt.type !== "auxiliary") {
+      const clipped = clipToShape(tgt, pts[pts.length - 2].x, pts[pts.length - 2].y);
+      pts[pts.length - 1] = clipped;
+    }
+
+    // Simplify: remove intermediate points that are nearly collinear
+    simplifyPath(pts);
+  });
+
+  return g;
+}
+
+// Remove intermediate points that are nearly collinear (perpendicular distance < threshold)
+function simplifyPath(pts) {
+  if (pts.length <= 2) return;
+  const threshold = 5; // pixels
+  for (let i = pts.length - 2; i >= 1; i--) {
+    const a = pts[i - 1], b = pts[i], c = pts[i + 1];
+    // Perpendicular distance of b from line a→c
+    const dx = c.x - a.x, dy = c.y - a.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 0.001) { pts.splice(i, 1); continue; }
+    const dist = Math.abs(dx * (a.y - b.y) - dy * (a.x - b.x)) / len;
+    if (dist < threshold) pts.splice(i, 1);
+  }
+}
+
+// Clip a line from (px, py) to node center to the actual shape boundary
+function clipToShape(node, px, py) {
+  const cx = node.x, cy = node.y;
+  const dpx = px - cx, dpy = py - cy;
+
+  if (node.type === "decision") {
+    const hw = node.width / 2, hh = node.height / 2;
+    const denom = Math.abs(dpx) / hw + Math.abs(dpy) / hh;
+    if (denom < 0.001) return { x: cx, y: cy - hh }; // fallback to top
+    const t = 1 / denom;
+    return { x: cx + dpx * t, y: cy + dpy * t };
+  }
+
+  if (node.type === "terminal") {
+    const rx = node.width / 2, ry = node.height / 2;
+    const angle = Math.atan2(dpy, dpx);
+    return { x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) };
+  }
+
+  // Rectangle: dagre already handles correctly
+  return { x: px, y: py };
+}
+
+// ===================================================================
+//  Render SVG Flowchart
+// ===================================================================
+function renderFlowchart(g) {
+  const svg = document.getElementById("flowchartSvg");
+  const graph = g.graph();
+
+  svg.setAttribute("width", graph.width + 80);
+  svg.setAttribute("height", graph.height + 80);
+  svg.setAttribute("viewBox", `0 0 ${graph.width + 80} ${graph.height + 80}`);
+
+  const offsetX = 40, offsetY = 40;
+  let svgContent = "";
+
+  // Regions — sort ascending by area for padding (larger regions get more padding)
+  // then draw in REVERSE order so smaller (inner) regions are on top for click priority
+  const regionBounds = REGIONS.map(region => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    region.nodes.forEach(nid => {
+      const n = g.node(nid);
+      if (!n) return;
+      minX = Math.min(minX, n.x - n.width/2);
+      minY = Math.min(minY, n.y - n.height/2);
+      maxX = Math.max(maxX, n.x + n.width/2);
+      maxY = Math.max(maxY, n.y + n.height/2);
+    });
+    return { id: region.id || "", label: region.label, minX, minY, maxX, maxY, area: (maxX - minX) * (maxY - minY) };
+  });
+  regionBounds.sort((a, b) => a.area - b.area);
+  regionBounds.forEach((rb, i) => { rb.pad = 30 + i * 20; });
+  // Draw largest first (background), smallest last (foreground = clickable on top)
+  for (let i = regionBounds.length - 1; i >= 0; i--) {
+    const rb = regionBounds[i];
+    const pad = rb.pad;
+    svgContent += `<g class="region-group" data-region="${rb.id}">`;
+    svgContent += `<rect class="region-rect" x="${rb.minX + offsetX - pad}" y="${rb.minY + offsetY - pad}" width="${rb.maxX - rb.minX + pad*2}" height="${rb.maxY - rb.minY + pad*2}" />`;
+    svgContent += `<text class="region-label" x="${rb.minX + offsetX - pad + 12}" y="${rb.minY + offsetY - pad + 16}">${rb.label}</text>`;
+    svgContent += `</g>`;
+  }
+
+  // Edges
+  g.edges().forEach(e => {
+    const edge = g.edge(e);
+    const points = edge.points;
+    if (points.length >= 2) {
+      let d = `M ${points[0].x + offsetX},${points[0].y + offsetY}`;
+      for (let i = 1; i < points.length; i++) {
+        d += ` L ${points[i].x + offsetX},${points[i].y + offsetY}`;
+      }
+      svgContent += `<path class="edge-hit" d="${d}"/>`;
+      svgContent += `<path class="edge-line" d="${d}" marker-end="url(#arrowhead)"/>`;
+      if (edge.label) {
+        const mid = points[Math.floor(points.length / 2)];
+        const lx = mid.x + offsetX + 8, ly = mid.y + offsetY - 8;
+        svgContent += `<rect x="${lx - 4}" y="${ly - 12}" width="${edge.label.length * 12 + 8}" height="16" rx="3" fill="white" opacity="0.85"/>`;
+        svgContent += `<text class="edge-label" x="${lx}" y="${ly}">${edge.label}</text>`;
+      }
+    }
+  });
+
+  // Color maps
+  const fills = {
+    process: "var(--node-process)", decision: "var(--node-decision)",
+    terminal: "var(--node-terminal)", auxiliary: "var(--node-auxiliary)",
+  };
+  const strokes = {
+    process: "var(--node-process-stroke)", decision: "var(--node-decision-stroke)",
+    terminal: "var(--node-terminal-stroke)", auxiliary: "var(--node-auxiliary-stroke)",
+  };
+
+  // Nodes
+  g.nodes().forEach(nid => {
+    const n = g.node(nid);
+    const cx = n.x + offsetX, cy = n.y + offsetY;
+    const hasContent = CONTENT_NODES.includes(nid);
+
+    svgContent += `<g class="node-group" data-node="${nid}">`;
+
+    if (n.type === "decision") {
+      const hw = n.width / 2, hh = n.height / 2;
+      svgContent += `<polygon class="node-shape" points="${cx},${cy-hh} ${cx+hw},${cy} ${cx},${cy+hh} ${cx-hw},${cy}" fill="${fills.decision}" stroke="${strokes.decision}" stroke-width="2"/>`;
+    } else if (n.type === "terminal") {
+      svgContent += `<ellipse class="node-shape" cx="${cx}" cy="${cy}" rx="${n.width/2}" ry="${n.height/2}" fill="${fills.terminal}" stroke="${strokes.terminal}" stroke-width="2"/>`;
+    } else {
+      const fill = fills[n.type] || fills.process;
+      const stroke = strokes[n.type] || strokes.process;
+      svgContent += `<rect class="node-shape" x="${cx - n.width/2}" y="${cy - n.height/2}" width="${n.width}" height="${n.height}" rx="8" ry="8" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    }
+
+    svgContent += `<text class="node-label" x="${cx}" y="${n.sub ? cy - 7 : cy}" style="font-size:${n.type === 'auxiliary' ? 12 : 13}px">${n.label}</text>`;
+    if (n.sub) {
+      svgContent += `<text class="node-sublabel" x="${cx}" y="${cy + 11}">${n.sub}</text>`;
+    }
+
+    // Status dot only on process nodes (blue rectangles) — looks clean at top-right corner
+    if (hasContent && n.type === "process") {
+      svgContent += `<circle class="status-dot" cx="${cx + n.width/2 - 12}" cy="${cy - n.height/2 + 12}" r="6" fill="var(--status-not-started)" data-status-dot="${nid}"/>`;
+    }
+
+    svgContent += `</g>`;
+  });
+
+  const defs = svg.querySelector("defs").outerHTML;
+  svg.innerHTML = defs + svgContent;
+}
+
+// ===================================================================
+//  Status & Progress
+// ===================================================================
+const STATUS_COLORS = {
+  not_started: "var(--status-not-started)", discussing: "var(--status-discussing)",
+  theory_ok: "var(--status-theory-ok)", implemented: "var(--status-implemented)",
+  verified: "var(--status-verified)",
+};
+const STATUS_LABELS = {
+  not_started: "未开始", discussing: "讨论中",
+  theory_ok: "理论确认", implemented: "已实现", verified: "已验证",
+};
+
+function renderStatusDots() {
+  CONTENT_NODES.forEach(nid => {
+    const dot = document.querySelector(`[data-status-dot="${nid}"]`);
+    if (dot) dot.setAttribute("fill", STATUS_COLORS[state.statuses[nid] || "not_started"]);
+  });
+}
+
+function updateProgress() {
+  const done = PROCESS_CONTENT_NODES.filter(n => ["implemented","verified"].includes(state.statuses[n] || "")).length;
+  document.getElementById("progressText").textContent = `${done}/${PROCESS_CONTENT_NODES.length}`;
+  document.getElementById("progressBar").style.width = `${(done / PROCESS_CONTENT_NODES.length * 100)}%`;
+  const list = document.getElementById("progressList");
+  list.innerHTML = PROCESS_CONTENT_NODES.map(nid => {
+    const st = state.statuses[nid] || "not_started";
+    return `<div class="progress-item"><div class="legend-dot" style="background:${STATUS_COLORS[st]}"></div><span>${CONTENTS[nid]?.title || nid}</span><span style="margin-left:auto;color:var(--text-secondary)">${STATUS_LABELS[st]}</span></div>`;
+  }).join("");
+}
+
+// Status select
+const statusSel = document.getElementById("panelStatusSelect");
+Object.entries(STATUS_LABELS).forEach(([k,v]) => {
+  const opt = document.createElement("option"); opt.value = k; opt.textContent = v;
+  statusSel.appendChild(opt);
+});
+statusSel.addEventListener("change", () => {
+  if (!currentNodeId) return;
+  state.statuses[currentNodeId] = statusSel.value;
+  saveState(); renderStatusDots(); updateProgress();
+});
+
+// ===================================================================
+//  Panel
+// ===================================================================
+let currentNodeId = null;
+let rawTabContent = {};
+
+function openPanel(nodeId) {
+  const data = CONTENTS[nodeId];
+  if (!data) return;
+
+  panelMode = "node";
+  document.querySelectorAll(".node-group").forEach(g => g.classList.remove("selected"));
+  document.querySelectorAll(".region-group").forEach(g => g.classList.remove("selected"));
+  const grp = document.querySelector(`[data-node="${nodeId}"]`);
+  if (grp) grp.classList.add("selected");
+  currentNodeId = nodeId;
+
+  // Restore node-mode tabs
+  document.querySelector(".panel-status").style.display = "";
+  const tabBtns = document.getElementById("tabBar").querySelectorAll(".tab-btn");
+  const nodeTabLabels = { overview: "概述", how: "How", verify: "Verify", code: "Code", refs: "参考", pitfalls: "踩坑" };
+  tabBtns.forEach(btn => { btn.style.display = ""; btn.textContent = nodeTabLabels[btn.dataset.tab] || btn.dataset.tab; });
+
+  document.getElementById("panelTitle").textContent = data.title;
+  statusSel.value = state.statuses[nodeId] || "not_started";
+
+  // --- Fill tabs with Markdown rendering ---
+  const overviewHtml = renderMd(data.overview);
+  const howHtml = renderMd(data.how);
+  const refsHtml = renderMd(data.refs);
+  const pitfallsHtml = data.pitfalls ? renderMd(data.pitfalls) : '<p style="color:#999">暂无踩坑记录。遇到 bug 后在此记录。</p>';
+
+  // Code tab
+  let codeHtml = "";
+  if (data.code) {
+    if (data.code.files && data.code.files.length > 0) {
+      codeHtml += "<h3>代码文件</h3>";
+      data.code.files.forEach(f => { codeHtml += `<div class="code-path"><code>${f}</code></div>`; });
+    }
+    if (data.code.snippet) {
+      codeHtml += "<h3>核心实现</h3>" + renderMd(data.code.snippet);
+    }
+  }
+  if (!codeHtml) codeHtml = '<p style="color:#999">暂无代码（规划阶段）</p>';
+
+  rawTabContent = { overview: overviewHtml, how: howHtml, code: codeHtml, refs: refsHtml, pitfalls: pitfallsHtml };
+  for (const [tab, html] of Object.entries(rawTabContent)) {
+    document.getElementById(`pane-${tab}`).innerHTML = html;
+  }
+
+  // --- Verify tab (3-layer structure) ---
+  const verify = data.verify || {};
+  const sections = [
+    { key: "pre",  title: "前置条件", subtitle: "上一步的输出满足要求吗？", icon: "⬇" },
+    { key: "core", title: "内部正确性", subtitle: "这步本身的逻辑对不对？", icon: "⚙" },
+    { key: "post", title: "后置条件", subtitle: "输出能被下一步正确消费吗？", icon: "⬆" },
+  ];
+
+  let verifyHtml = "";
+  let globalIdx = 0;
+  let totalItems = 0;
+
+  sections.forEach(sec => {
+    const items = verify[sec.key] || [];
+    if (items.length === 0) return;
+    verifyHtml += `<div class="verify-section-header"><span class="verify-section-icon">${sec.icon}</span><div><strong>${sec.title}</strong><div class="verify-section-sub">${sec.subtitle}</div></div></div>`;
+    items.forEach(item => {
+      const checked = state.verifyChecks[nodeId]?.[globalIdx] ? "checked" : "";
+      const passedClass = checked ? " passed" : "";
+      const levelTag = item.level ? `<span class="verify-level">${item.level}</span>` : "";
+      const checkTag = item.check ? `<div class="verify-method-text">检查：${item.check}</div>` : "";
+      const methodTag = item.method ? `<div class="verify-method-text">方法：${item.method}</div>` : "";
+      const cmdEl = item.cmd ? `<code class="verify-cmd">${item.cmd}</code>` : "";
+      verifyHtml += `<div class="verify-item${passedClass}"><span class="verify-check-icon">${checked ? "✅" : "⬜"}</span><div class="verify-content"><div>${item.desc}</div><div class="verify-meta">${levelTag}</div>${checkTag}${methodTag}${cmdEl}</div></div>`;
+      totalItems++;
+      globalIdx++;
+    });
+  });
+
+  const checkedCount = Object.values(state.verifyChecks[nodeId] || {}).filter(Boolean).length;
+  document.getElementById("pane-verify").innerHTML = `<div class="verify-header"><h3>验证规范</h3><p>三层验证：前置条件 → 内部正确性 → 后置条件。全部通过 = 此环节可信。</p></div>${verifyHtml}<div class="verify-summary">通过 <span class="verify-summary-count">${checkedCount} / ${totalItems}</span> 项</div>`;
+
+  // Apply annotations
+  for (const tab of Object.keys(rawTabContent)) {
+    renderAnnotations(nodeId, tab);
+  }
+
+  document.getElementById("panel").classList.add("open");
+  document.getElementById("flowchartContainer").classList.add("panel-open");
+  switchTab("overview");
+}
+
+let panelMode = "node"; // "node" or "region"
+
+function openRegionPanel(regionId) {
+  const region = REGIONS.find(r => r.id === regionId);
+  if (!region) return;
+
+  panelMode = "region";
+  currentNodeId = "region:" + regionId;
+
+  // Selection highlighting
+  document.querySelectorAll(".node-group").forEach(g => g.classList.remove("selected"));
+  document.querySelectorAll(".region-group").forEach(g => g.classList.remove("selected"));
+  const rg = document.querySelector(`[data-region="${regionId}"]`);
+  if (rg) rg.classList.add("selected");
+
+  document.getElementById("panelTitle").textContent = region.label;
+  document.querySelector(".panel-status").style.display = "none";
+
+  // Tab labels for region mode
+  const tabBar = document.getElementById("tabBar");
+  const tabBtns = tabBar.querySelectorAll(".tab-btn");
+  const regionTabs = ["overview", "how", "verify"];
+  tabBtns.forEach(btn => {
+    const tab = btn.dataset.tab;
+    if (tab === "overview") { btn.textContent = "概述"; btn.style.display = ""; }
+    else if (tab === "how") { btn.textContent = "节点"; btn.style.display = ""; }
+    else if (tab === "verify") { btn.textContent = "Verify"; btn.style.display = ""; }
+    else { btn.style.display = "none"; }
+  });
+
+  // Overview — semantic description
+  const semanticHtml = renderMd(region.semantic || "暂无语义描述。");
+
+  // Member nodes list
+  let nodesHtml = "";
+  (region.nodes || []).forEach(nid => {
+    const nodeData = CONTENTS[nid];
+    const st = state.statuses[nid] || "not_started";
+    const title = nodeData?.title || nid;
+    nodesHtml += `<div class="region-member-node" data-goto="${nid}"><div class="legend-dot" style="background:${STATUS_COLORS[st]}"></div><span>${title}</span><span style="margin-left:auto;color:var(--text-secondary);font-size:12px">${STATUS_LABELS[st]}</span></div>`;
+  });
+
+  // Verify — L2 verification
+  const verify = region.verify || {};
+  const sections = [
+    { key: "pre",  title: "前置条件", subtitle: "region 输入满足要求吗？", icon: "⬇" },
+    { key: "core", title: "区域验证 (L2)", subtitle: "各模块组合后整体正确吗？", icon: "⚙" },
+    { key: "post", title: "后置条件", subtitle: "region 输出能被外部正确消费吗？", icon: "⬆" },
+  ];
+  let verifyHtml = "", globalIdx = 0, totalItems = 0;
+  sections.forEach(sec => {
+    const items = verify[sec.key] || [];
+    if (items.length === 0) return;
+    verifyHtml += `<div class="verify-section-header"><span class="verify-section-icon">${sec.icon}</span><div><strong>${sec.title}</strong><div class="verify-section-sub">${sec.subtitle}</div></div></div>`;
+    items.forEach(item => {
+      const checked = state.verifyChecks[regionId]?.[globalIdx] ? "checked" : "";
+      const passedClass = checked ? " passed" : "";
+      const levelTag = item.level ? `<span class="verify-level">${item.level}</span>` : "";
+      const checkTag = item.check ? `<div class="verify-method-text">检查：${item.check}</div>` : "";
+      const methodTag = item.method ? `<div class="verify-method-text">方法：${item.method}</div>` : "";
+      const cmdEl = item.cmd ? `<code class="verify-cmd">${item.cmd}</code>` : "";
+      verifyHtml += `<div class="verify-item${passedClass}"><span class="verify-check-icon">${checked ? "✅" : "⬜"}</span><div class="verify-content"><div>${item.desc}</div><div class="verify-meta">${levelTag}</div>${checkTag}${methodTag}${cmdEl}</div></div>`;
+      totalItems++;
+      globalIdx++;
+    });
+  });
+  const checkedCount = Object.values(state.verifyChecks[regionId] || {}).filter(Boolean).length;
+  const verifyFullHtml = `<div class="verify-header"><h3>区域验证</h3><p>L2 交叉验证：各子模块组合后，整体行为是否符合预期。</p></div>${verifyHtml}<div class="verify-summary">通过 <span class="verify-summary-count">${checkedCount} / ${totalItems}</span> 项</div>`;
+
+  rawTabContent = { overview: semanticHtml, how: nodesHtml, verify: "", code: "", refs: "", pitfalls: "" };
+  for (const [tab, html] of Object.entries(rawTabContent)) {
+    document.getElementById(`pane-${tab}`).innerHTML = html;
+  }
+  document.getElementById("pane-verify").innerHTML = verifyFullHtml;
+
+  document.getElementById("panel").classList.add("open");
+  document.getElementById("flowchartContainer").classList.add("panel-open");
+  switchTab("overview");
+
+  // Click on member node → jump to that node's panel
+  document.querySelectorAll(".region-member-node[data-goto]").forEach(el => {
+    el.addEventListener("click", () => openPanel(el.dataset.goto));
+  });
+}
+
+function closePanel() {
+  document.getElementById("panel").classList.remove("open");
+  document.getElementById("flowchartContainer").classList.remove("panel-open");
+  document.querySelectorAll(".node-group").forEach(g => g.classList.remove("selected"));
+  document.querySelectorAll(".region-group").forEach(g => g.classList.remove("selected"));
+  currentNodeId = null;
+  panelMode = "node";
+}
+
+// Tab switching
+function switchTab(tabId) {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
+  document.querySelectorAll(".tab-pane").forEach(p => p.classList.toggle("active", p.id === `pane-${tabId}`));
+}
+
+document.getElementById("tabBar").addEventListener("click", e => {
+  if (e.target.classList.contains("tab-btn")) switchTab(e.target.dataset.tab);
+});
+
+// Verify items are read-only (state set by test execution, not manual clicks)
+
+// Modal helpers
+function showModal(id) { document.getElementById(`modal-${id}`).classList.add("open"); }
+function hideModal(id) { document.getElementById(`modal-${id}`).classList.remove("open"); }
+document.querySelectorAll(".modal-overlay").forEach(el => {
+  el.addEventListener("click", e => { if (e.target === el) el.classList.remove("open"); });
+});
+
+// ===================================================================
+//  Annotation System
+// ===================================================================
+function escapeHtml(str) { const div = document.createElement("div"); div.textContent = str; return div.innerHTML; }
+
+const ALL_TABS = new Set(["overview", "how", "verify", "code", "refs", "pitfalls"]);
+const ANNO_SELECTORS = "p, li, pre, dd, td, blockquote, .verify-item";
+
+// Overlay
+const annoOverlay = document.createElement("div");
+annoOverlay.className = "anno-overlay";
+document.body.appendChild(annoOverlay);
+
+// Popup
+const annoPopup = document.createElement("div");
+annoPopup.className = "anno-popup";
+annoPopup.innerHTML = `
+  <div class="anno-selected-preview" id="annoPreview"></div>
+  <div class="anno-popup-row">
+    <input type="text" class="anno-popup-input" id="annoInput" placeholder="写下你的批注...">
+    <button class="anno-popup-submit" id="annoSubmitBtn">提交</button>
+    <button class="anno-popup-cancel" id="annoCancelBtn">取消</button>
+  </div>
+`;
+document.body.appendChild(annoPopup);
+
+let annoSelectedText = "", annoActiveTab = "";
+
+// Click on block → open annotation popup
+document.querySelector(".tab-content-area").addEventListener("click", e => {
+  if (e.target.closest(".annotation-section")) return;
+  const hl = e.target.closest(".anno-highlight");
+  if (hl) {
+    document.querySelectorAll(".anno-highlight.touch-active").forEach(el => el.classList.remove("touch-active"));
+    hl.classList.add("touch-active");
+    setTimeout(() => hl.classList.remove("touch-active"), 3000);
+    return;
+  }
+
+  const block = e.target.closest(ANNO_SELECTORS);
+  if (!block) return;
+  const contentArea = document.querySelector(".tab-content-area");
+  if (!contentArea.contains(block)) return;
+  if (block.closest(".annotation-section")) return;
+
+  const activeTab = document.querySelector(".tab-btn.active")?.dataset.tab || "";
+  if (!currentNodeId || !ALL_TABS.has(activeTab)) return;
+
+  contentArea.querySelectorAll(".anno-unit-selected").forEach(el => el.classList.remove("anno-unit-selected"));
+  block.classList.add("anno-unit-selected");
+  annoSelectedText = block.textContent.trim();
+  annoActiveTab = activeTab;
+
+  const preview = document.getElementById("annoPreview");
+  preview.textContent = annoSelectedText.length > 120 ? annoSelectedText.substring(0, 120) + "..." : annoSelectedText;
+
+  annoOverlay.classList.add("show");
+  annoPopup.classList.add("show");
+  document.getElementById("annoInput").value = "";
+  setTimeout(() => document.getElementById("annoInput").focus(), 300);
+});
+
+function closeAnnoPopup() {
+  annoPopup.classList.remove("show");
+  annoOverlay.classList.remove("show");
+  annoPopup._flowTarget = null;
+  document.querySelector(".tab-content-area")
+    ?.querySelectorAll(".anno-unit-selected")
+    .forEach(el => el.classList.remove("anno-unit-selected"));
+}
+
+annoOverlay.addEventListener("click", closeAnnoPopup);
+document.getElementById("annoCancelBtn").addEventListener("click", closeAnnoPopup);
+
+function submitAnno() {
+  const comment = document.getElementById("annoInput").value.trim();
+  if (!comment) return;
+
+  if (annoPopup._flowTarget) {
+    // Flow chart annotation
+    const key = annoPopup._flowTarget;
+    if (!state.flowAnnotations[key]) state.flowAnnotations[key] = [];
+    state.flowAnnotations[key].push({ comment, time: new Date().toISOString() });
+    saveState();
+    closeAnnoPopup();
+    renderFlowAnnotations();
+    showToast("流程图批注已添加");
+  } else {
+    // Panel annotation
+    if (!currentNodeId || !annoActiveTab || !annoSelectedText) return;
+    if (!state.annotations[currentNodeId]) state.annotations[currentNodeId] = {};
+    if (!state.annotations[currentNodeId][annoActiveTab])
+      state.annotations[currentNodeId][annoActiveTab] = [];
+    state.annotations[currentNodeId][annoActiveTab].push({ text: annoSelectedText, comment });
+    saveState();
+    closeAnnoPopup();
+    refreshTab(currentNodeId, annoActiveTab);
+    showToast("批注已添加");
+  }
+}
+document.getElementById("annoSubmitBtn").addEventListener("click", submitAnno);
+document.getElementById("annoInput").addEventListener("keydown", e => { if (e.key === "Enter") submitAnno(); });
+
+// Render annotations
+function renderAnnotations(nodeId, tabId) {
+  const annos = state.annotations?.[nodeId]?.[tabId];
+  if (!annos || annos.length === 0) return;
+  const pane = document.getElementById(`pane-${tabId}`);
+  if (!pane) return;
+  let html = pane.innerHTML;
+  for (const anno of annos) {
+    if (anno.text) {
+      const escaped = anno.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`(?<![\">])${escaped}(?![^<]*>)`, "g");
+      let replaced = false;
+      html = html.replace(regex, match => {
+        if (replaced) return match;
+        replaced = true;
+        return `<mark class="anno-highlight" data-comment="${escapeHtml(anno.comment)}">${match}</mark>`;
+      });
+    }
+  }
+  html += `<div class="annotation-section"><div class="annotation-section-title">批注 (${annos.length})</div>`;
+  annos.forEach((anno, idx) => {
+    const preview = anno.text && anno.text.length > 50 ? anno.text.substring(0,50) + "..." : (anno.text || "(流程批注)");
+    html += `<div class="annotation-item"><div class="annotation-text"><strong>"${escapeHtml(preview)}"</strong><br>${escapeHtml(anno.comment)}</div><button class="annotation-delete" data-anno-idx="${idx}" data-anno-tab="${tabId}">&times;</button></div>`;
+  });
+  html += "</div>";
+  pane.innerHTML = html;
+}
+
+function refreshTab(nodeId, tabId) {
+  const pane = document.getElementById(`pane-${tabId}`);
+  if (!pane || !rawTabContent[tabId]) return;
+  pane.innerHTML = rawTabContent[tabId];
+  renderAnnotations(nodeId, tabId);
+}
+
+// Delete annotation
+document.querySelector(".tab-content-area").addEventListener("click", e => {
+  if (!e.target.classList.contains("annotation-delete")) return;
+  const idx = parseInt(e.target.dataset.annoIdx);
+  const tab = e.target.dataset.annoTab;
+  if (!currentNodeId || !state.annotations?.[currentNodeId]?.[tab]) return;
+  state.annotations[currentNodeId][tab].splice(idx, 1);
+  if (state.annotations[currentNodeId][tab].length === 0) delete state.annotations[currentNodeId][tab];
+  saveState();
+  refreshTab(currentNodeId, tab);
+  showToast("批注已删除");
+});
+
+// Feedback export
+function buildFeedbackMarkdown() {
+  const tabNames = {overview:"Overview", how:"How", code:"Code", verify:"Verify", refs:"Refs", pitfalls:"Pitfalls"};
+  const params = new URLSearchParams(location.search);
+  const src = params.get("src") || "../examples/bpc-phase1.json";
+  const title = mapData?.meta?.title || "Algorithm Map";
+
+  // Count total annotations
+  let count = 0;
+  for (const annos of Object.values(state.flowAnnotations || {})) count += annos.length;
+  for (const nodeAnnos of Object.values(state.annotations || {})) {
+    for (const annos of Object.values(nodeAnnos)) count += annos.length;
+  }
+  if (count === 0) return null;
+
+  const lines = [];
+  lines.push(`# Feedback: ${title}`);
+  lines.push(`- Date: ${new Date().toISOString().replace(/\.\d+Z$/, "")}`);
+  lines.push(`- Source: ${src}`);
+  lines.push(`- Annotations: ${count}`);
+  lines.push("");
+
+  // Flow annotations section
+  const flowEntries = Object.entries(state.flowAnnotations || {});
+  if (flowEntries.length > 0) {
+    lines.push("## Flow");
+    for (const [key, annos] of flowEntries) {
+      for (const anno of annos) {
+        lines.push(`- [${key}] ${anno.comment}`);
+      }
+    }
+    lines.push("");
+  }
+
+  // Region annotations
+  for (const region of REGIONS) {
+    const rkey = "region:" + region.id;
+    const regionAnnos = state.annotations?.[rkey];
+    if (!regionAnnos) continue;
+    lines.push(`## ${region.label}`);
+    for (const [tab, annos] of Object.entries(regionAnnos)) {
+      for (const anno of annos) {
+        const anchor = anno.text ? anno.text.substring(0, 60) : "";
+        if (anchor) {
+          lines.push(`- [${tabNames[tab] || tab}] "${anchor}"${anno.text.length > 60 ? "..." : ""} → ${anno.comment}`);
+        } else {
+          lines.push(`- [${tabNames[tab] || tab}] ${anno.comment}`);
+        }
+      }
+    }
+    lines.push("");
+  }
+
+  // Node annotations — grouped by node
+  for (const nodeId of CONTENT_NODES) {
+    const nodeAnnos = state.annotations?.[nodeId];
+    if (!nodeAnnos) continue;
+    const nodeTitle = CONTENTS[nodeId]?.title || nodeId;
+    const nodeGraphData = GRAPH_NODES.find(n => n.id === nodeId);
+    const nodeLabel = nodeGraphData?.label || nodeTitle;
+    lines.push(`## ${nodeLabel}`);
+    for (const [tab, annos] of Object.entries(nodeAnnos)) {
+      for (const anno of annos) {
+        const anchor = anno.text ? anno.text.substring(0, 60) : "";
+        if (anchor) {
+          lines.push(`- [${tabNames[tab] || tab}] "${anchor}"${anno.text.length > 60 ? "..." : ""} → ${anno.comment}`);
+        } else {
+          lines.push(`- [${tabNames[tab] || tab}] ${anno.comment}`);
+        }
+      }
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n").trim() + "\n";
+}
+
+function getMapPath() {
+  const params = new URLSearchParams(location.search);
+  const src = params.get("src") || "../examples/bpc-phase1.json";
+  try {
+    return new URL(src, location.href).pathname;
+  } catch {
+    return src;
+  }
+}
+
+async function submitFeedback() {
+  const md = buildFeedbackMarkdown();
+  if (!md) { showToast("没有批注"); return; }
+
+  const mapPath = window.__MAP_PATH__ || getMapPath();
+  const title = mapData?.meta?.title || "Algorithm Map";
+  const terminalId = window.__TERMINAL_ID__ || new URLSearchParams(location.search).get("terminal") || null;
+  const payload = JSON.stringify({ mapPath, title, markdown: md, terminalId });
+
+  // Endpoints to try in order: embedded list → local server → frp remote
+  const endpoints = window.__API_ENDPOINTS__ || [
+    `${location.protocol}//${location.host}/api/map-feedback`,
+    "http://localhost:3002/api/map-feedback",
+    "http://120.26.28.49:10001/api/map-feedback",
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      });
+      const result = await resp.json();
+      if (result.ok) {
+        const msg = result.pushedTo
+          ? "✓ 已推送到 CC 终端"
+          : "✓ 已提交，正在打开新 CC 窗口…";
+        showToast(msg);
+        // 通知父窗口（review.html iframe 模式）跳回终端页
+        if (window.parent !== window) {
+          window.parent.postMessage({ type: "feedback-submitted", terminalId }, "*");
+        }
+        return;
+      }
+    } catch { /* try next */ }
+  }
+
+  // All endpoints failed — clipboard fallback
+  try {
+    await navigator.clipboard.writeText(md);
+    showToast("服务器不可用，已复制到剪贴板");
+  } catch {
+    prompt("请手动复制反馈 Markdown：", md);
+  }
+}
+
+async function exportStandalone() {
+  if (!mapData) { showToast("地图未加载"); return; }
+  showToast("正在生成独立 HTML…");
+  const params = new URLSearchParams(location.search);
+  const src = params.get("src") || "";
+  const terminal = params.get("terminal") || "";
+  try {
+    const url = `/api/export?src=${encodeURIComponent(src)}&terminal=${encodeURIComponent(terminal)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const blob = await resp.blob();
+    const title = (mapData?.meta?.title || "algorithm-map").replace(/[\\/:*?"<>|]/g, "_");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${title}.html`;
+    a.click();
+    showToast("✓ 已下载独立 HTML");
+  } catch (err) {
+    showToast(`导出失败: ${err.message}`);
+  }
+}
+
+// Toast
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2000);
+}
+
+// ===================================================================
+//  Flow Chart Annotation Mode
+// ===================================================================
+let annoModeOn = false;
+
+function toggleAnnoMode() {
+  annoModeOn = !annoModeOn;
+  document.body.classList.toggle("anno-mode-on", annoModeOn);
+  document.getElementById("annoModeBtn").classList.toggle("active", annoModeOn);
+  if (annoModeOn) closePanel();
+}
+
+// Click handler for flow chart
+document.getElementById("flowchartSvg").addEventListener("click", e => {
+  if (!annoModeOn) {
+    // Node clicks take priority (nodes are drawn on top of regions)
+    const grp = e.target.closest(".node-group");
+    if (grp) {
+      const nid = grp.dataset.node;
+      if (CONTENT_NODES.includes(nid)) openPanel(nid);
+      return;
+    }
+    // Region click — open region panel
+    const regionGrp = e.target.closest(".region-group");
+    if (regionGrp && regionGrp.dataset.region) {
+      openRegionPanel(regionGrp.dataset.region);
+      return;
+    }
+    return;
+  }
+
+  // Anno mode
+  const grp = e.target.closest(".node-group");
+  const edgeLine = e.target.closest(".edge-line") || e.target.closest(".edge-hit");
+  const regionGrp = e.target.closest(".region-group");
+
+  let targetKey = null;
+  let targetLabel = "";
+
+  if (grp) {
+    targetKey = "node:" + grp.dataset.node;
+    const nodeData = GRAPH_NODES.find(n => n.id === grp.dataset.node);
+    targetLabel = nodeData ? nodeData.label : grp.dataset.node;
+  } else if (edgeLine) {
+    const edges = document.querySelectorAll(".edge-hit");
+    let edgeIdx = Array.from(edges).indexOf(edgeLine.classList.contains("edge-hit") ? edgeLine : edgeLine.previousElementSibling);
+    if (edgeIdx >= 0 && edgeIdx < GRAPH_EDGES.length) {
+      const edge = GRAPH_EDGES[edgeIdx];
+      targetKey = "edge:" + edge.from + "->" + edge.to;
+      targetLabel = edge.from + " → " + edge.to + (edge.label ? " (" + edge.label + ")" : "");
+    }
+  } else if (regionGrp && regionGrp.dataset.region) {
+    const rid = regionGrp.dataset.region;
+    targetKey = "region:" + rid;
+    const region = REGIONS.find(r => r.id === rid);
+    targetLabel = region ? region.label : rid;
+  }
+
+  if (!targetKey) return;
+
+  const preview = document.getElementById("annoPreview");
+  preview.textContent = "📍 " + targetLabel;
+  annoOverlay.classList.add("show");
+  annoPopup.classList.add("show");
+  document.getElementById("annoInput").value = "";
+  annoPopup._flowTarget = targetKey;
+  setTimeout(() => document.getElementById("annoInput").focus(), 300);
+});
+
+// Render flow annotation markers on SVG
+function renderFlowAnnotations() {
+  document.querySelectorAll(".flow-anno-marker").forEach(el => el.remove());
+
+  const svg = document.getElementById("flowchartSvg");
+  const offsetX = 40, offsetY = 40;
+
+  for (const [key, annos] of Object.entries(state.flowAnnotations || {})) {
+    if (!annos || annos.length === 0) continue;
+
+    let cx, cy;
+    if (key.startsWith("node:")) {
+      const nid = key.substring(5);
+      const node = dagreGraph.node(nid);
+      if (!node) continue;
+      cx = node.x + offsetX + node.width / 2 - 4;
+      cy = node.y + offsetY - node.height / 2 + 4;
+    } else if (key.startsWith("edge:")) {
+      const parts = key.substring(5).split("->");
+      if (parts.length !== 2) continue;
+      const edgeData = dagreGraph.edge(parts[0], parts[1]);
+      if (!edgeData || !edgeData.points) continue;
+      const mid = edgeData.points[Math.floor(edgeData.points.length / 2)];
+      cx = mid.x + offsetX + 12;
+      cy = mid.y + offsetY;
+    } else if (key.startsWith("region:")) {
+      const rid = key.substring(7);
+      const regionEl = document.querySelector(`[data-region="${rid}"] .region-rect`);
+      if (!regionEl) continue;
+      cx = parseFloat(regionEl.getAttribute("x")) + 8;
+      cy = parseFloat(regionEl.getAttribute("y")) + 8;
+    } else continue;
+
+    const marker = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    marker.classList.add("flow-anno-marker");
+    marker.dataset.annoKey = key;
+    marker.innerHTML = `<circle cx="${cx}" cy="${cy}" r="10"/><text x="${cx}" y="${cy}">${annos.length}</text>`;
+
+    marker.addEventListener("click", e => {
+      e.stopPropagation();
+      showFlowAnnoTooltip(key, e.clientX, e.clientY);
+    });
+
+    svg.appendChild(marker);
+  }
+}
+
+// Flow annotation tooltip
+const flowTooltip = document.createElement("div");
+flowTooltip.className = "flow-anno-tooltip";
+document.body.appendChild(flowTooltip);
+
+function showFlowAnnoTooltip(key, x, y) {
+  const annos = state.flowAnnotations[key] || [];
+  if (annos.length === 0) return;
+
+  flowTooltip.innerHTML = annos.map((a, idx) =>
+    `<div style="margin-bottom:6px">${escapeHtml(a.comment)}<span class="flow-anno-delete" data-fkey="${key}" data-fidx="${idx}"> ✕ 删除</span></div>`
+  ).join("");
+
+  flowTooltip.style.left = Math.min(x, window.innerWidth - 340) + "px";
+  flowTooltip.style.top = (y + 16) + "px";
+  flowTooltip.classList.add("show");
+}
+
+document.addEventListener("click", e => {
+  if (e.target.classList.contains("flow-anno-delete")) {
+    const key = e.target.dataset.fkey;
+    const idx = parseInt(e.target.dataset.fidx);
+    if (state.flowAnnotations[key]) {
+      state.flowAnnotations[key].splice(idx, 1);
+      if (state.flowAnnotations[key].length === 0) delete state.flowAnnotations[key];
+      saveState();
+      renderFlowAnnotations();
+      flowTooltip.classList.remove("show");
+      showToast("流程图批注已删除");
+    }
+    return;
+  }
+  if (!flowTooltip.contains(e.target) && !e.target.closest(".flow-anno-marker")) {
+    flowTooltip.classList.remove("show");
+  }
+});
+
+// ===================================================================
+//  Boot
+// ===================================================================
+loadMap();
+</script>
+</body>
+</html>
