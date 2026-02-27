@@ -253,6 +253,7 @@ svg.flowchart { display: block; margin: 0 auto; }
 }
 body.anno-mode-on .flowchart-container { cursor: crosshair; }
 body.anno-mode-on .node-group { cursor: crosshair; }
+body.anno-mode-on .region-group { cursor: crosshair; pointer-events: all; }
 body.anno-mode-on .edge-line { cursor: crosshair; pointer-events: stroke; }
 .edge-hit { stroke: transparent; stroke-width: 18; fill: none; pointer-events: none; }
 body.anno-mode-on .edge-hit { pointer-events: stroke; cursor: crosshair; }
@@ -1090,7 +1091,7 @@ function openRegionPanel(regionId) {
   if (!region) return;
 
   panelMode = "region";
-  currentNodeId = null;
+  currentNodeId = "region:" + regionId;
 
   // Selection highlighting
   document.querySelectorAll(".node-group").forEach(g => g.classList.remove("selected"));
@@ -1381,6 +1382,25 @@ function buildFeedbackMarkdown() {
     lines.push("");
   }
 
+  // Region annotations
+  for (const region of REGIONS) {
+    const rkey = "region:" + region.id;
+    const regionAnnos = state.annotations?.[rkey];
+    if (!regionAnnos) continue;
+    lines.push(`## ${region.label}`);
+    for (const [tab, annos] of Object.entries(regionAnnos)) {
+      for (const anno of annos) {
+        const anchor = anno.text ? anno.text.substring(0, 60) : "";
+        if (anchor) {
+          lines.push(`- [${tabNames[tab] || tab}] "${anchor}"${anno.text.length > 60 ? "..." : ""} → ${anno.comment}`);
+        } else {
+          lines.push(`- [${tabNames[tab] || tab}] ${anno.comment}`);
+        }
+      }
+    }
+    lines.push("");
+  }
+
   // Node annotations — grouped by node
   for (const nodeId of CONTENT_NODES) {
     const nodeAnnos = state.annotations?.[nodeId];
@@ -1525,6 +1545,7 @@ document.getElementById("flowchartSvg").addEventListener("click", e => {
   // Anno mode
   const grp = e.target.closest(".node-group");
   const edgeLine = e.target.closest(".edge-line") || e.target.closest(".edge-hit");
+  const regionGrp = e.target.closest(".region-group");
 
   let targetKey = null;
   let targetLabel = "";
@@ -1541,6 +1562,11 @@ document.getElementById("flowchartSvg").addEventListener("click", e => {
       targetKey = "edge:" + edge.from + "->" + edge.to;
       targetLabel = edge.from + " → " + edge.to + (edge.label ? " (" + edge.label + ")" : "");
     }
+  } else if (regionGrp && regionGrp.dataset.region) {
+    const rid = regionGrp.dataset.region;
+    targetKey = "region:" + rid;
+    const region = REGIONS.find(r => r.id === rid);
+    targetLabel = region ? region.label : rid;
   }
 
   if (!targetKey) return;
@@ -1579,6 +1605,12 @@ function renderFlowAnnotations() {
       const mid = edgeData.points[Math.floor(edgeData.points.length / 2)];
       cx = mid.x + offsetX + 12;
       cy = mid.y + offsetY;
+    } else if (key.startsWith("region:")) {
+      const rid = key.substring(7);
+      const regionEl = document.querySelector(`[data-region="${rid}"] .region-rect`);
+      if (!regionEl) continue;
+      cx = parseFloat(regionEl.getAttribute("x")) + 8;
+      cy = parseFloat(regionEl.getAttribute("y")) + 8;
     } else continue;
 
     const marker = document.createElementNS("http://www.w3.org/2000/svg", "g");
