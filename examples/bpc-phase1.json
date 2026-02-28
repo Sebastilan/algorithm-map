@@ -140,7 +140,7 @@
       {
         "id": "cg_loop",
         "label": "Column Generation Loop",
-        "semantic": "**列生成循环**是 BPC 的内层核心。\n\n**输入**：RMP（含当前列集合）+ 分支约束\n**输出**：收敛的 LP 最优解 $z^*_{LP}$ + 对应的 $\\lambda^*$\n\n**等价关系**：CG 收敛后的 $z^*_{LP}$ 等价于在**全部**指数级列上求解 LP 松弛的最优值（Dantzig-Wolfe 分解定理）。\n\n**循环逻辑**：\n1. 求解 RMP → 获得对偶 $\\pi$\n2. 用 $\\pi$ 引导 ESPPRC 寻找负 RC 列\n3. 有负 RC 列 → 加入 RMP → 回到 1\n4. 无负 RC 列 → LP 最优，退出循环\n\n**收敛保证**：每次加入负 RC 列后 LP 目标严格改善（或不变），有限列 → 有限步收敛。",
+        "semantic": "**列生成循环**是 BPC 的内层核心。\n\n**输入**：RMP（含当前列集合）+ 分支约束\n**输出**：收敛的 LP 最优解 $z^*_{LP}$ + 对应的 $\\lambda^*$\n\n**等价关系**：CG 收敛后的 $z^*_{LP}$ 等价于在**全部**指数级列上求解 LP 松弛的最优值（Dantzig-Wolfe 分解定理）。\n\n### 等价 MIP：Set Covering LP（全列）\n\n$$\\min \\sum_{r \\in \\Omega} c_r \\lambda_r \\quad \\text{s.t.} \\quad \\sum_{r \\in \\Omega} a_{ir} \\lambda_r \\ge 1 \\; \\forall i,\\; \\lambda_r \\ge 0$$\n\n其中 $\\Omega$ 为**全部**可行路径集合。CG 不显式枚举 $\\Omega$，而是通过定价子问题隐式生成。小实例（$n \\le 8$）可枚举 $\\Omega$ 建此 LP 作为 oracle，验证 CG 收敛值。\n\n**循环逻辑**：\n1. 求解 RMP → 获得对偶 $\\pi$\n2. 用 $\\pi$ 引导 ESPPRC 寻找负 RC 列\n3. 有负 RC 列 → 加入 RMP → 回到 1\n4. 无负 RC 列 → LP 最优，退出循环\n\n**收敛保证**：每次加入负 RC 列后 LP 目标严格改善（或不变），有限列 → 有限步收敛。",
         "nodes": [
           "02_solve_rmp",
           "03_extract_duals",
@@ -298,7 +298,7 @@
     },
     "02_solve_rmp": {
       "title": "求解 RMP",
-      "overview": "用 LP 求解器求解 RMP 的 LP 松弛，得到最优解和对偶值。\n\n**输入**：当前 RMP（含所有已生成的列）+ 当前 B&B 节点的分支约束\n\n**输出**：\n- 最优 LP 解 $\\lambda^*$\n- 最优目标值 $z^*_{LP}$（当前节点的下界 LB）\n- 对偶解 $\\pi^*$（传给定价子问题）\n\n| 目的 | 机制 |\n|------|------|\n| 获得下界 LB | $z^*_{LP}$ 是当前 B&B 节点整数最优值的下界 |\n| 获得对偶值 π | 指示「哪些客户最缺覆盖」，引导定价子问题 |",
+      "overview": "用 LP 求解器求解 RMP 的 LP 松弛，得到最优解和对偶值。\n\n**输入**：当前 RMP（含所有已生成的列 $\\Omega'$）+ 当前 B&B 节点的分支约束\n\n**输出**：\n- 最优 LP 解 $\\lambda^*$\n- 最优目标值 $z^*_{LP}$（当前节点的下界 LB）\n- 对偶解 $\\pi^*$（传给定价子问题）\n\n| 目的 | 机制 |\n|------|------|\n| 获得下界 LB | $z^*_{LP}$ 是当前 B&B 节点整数最优值的下界 |\n| 获得对偶值 π | 指示「哪些客户最缺覆盖」，引导定价子问题 |\n\n### RMP LP 模型\n\n$$\\begin{array}{llll}\n\\min & \\displaystyle\\sum_{r \\in \\Omega'} c_r \\lambda_r & & \\text{(1) 总成本最小} \\\\[0.8em]\n\\text{s.t.} & \\displaystyle\\sum_{r \\in \\Omega'} a_{ir} \\lambda_r \\ge 1 & \\forall i \\in N & \\text{(2) 每客户至少覆盖一次}\\;(n\\text{ 个约束}) \\\\[0.8em]\n& \\lambda_r \\ge 0 & \\forall r \\in \\Omega' & \\text{(3) LP 松弛}\n\\end{array}$$\n\n与 MP 模型的区别：① 列集 $\\Omega' \\subset \\Omega$（只含已生成的列）；② $\\lambda_r$ 连续而非二元。",
       "verify": {
         "pre": [
           {
