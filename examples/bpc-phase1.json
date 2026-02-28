@@ -151,11 +151,13 @@
           "pre": [
             {
               "desc": "RMP 含可行初始列（所有客户被覆盖）",
-              "check": "all customers covered by initial columns"
+              "check": "all customers covered by initial columns",
+              "category": "pitfall"
             },
             {
               "desc": "分支约束已正确注入 RMP",
-              "check": "forced/forbidden edges applied"
+              "check": "forced/forbidden edges applied",
+              "category": "pitfall"
             }
           ],
           "core": [
@@ -163,28 +165,33 @@
               "desc": "CG 收敛后 z*_LP 等于 SP-LP 全局最优",
               "level": "L2",
               "method": "与 Gurobi 直接求 SP-LP 对比（小实例）",
-              "cmd": "pytest src/python/tests/test_cg_convergence.py"
+              "cmd": "pytest src/python/tests/test_cg_convergence.py",
+              "category": "correctness"
             },
             {
               "desc": "CG 迭代次数合理（不无限循环）",
               "level": "L2",
-              "method": "设 max_iter=200，正常实例 <50 轮"
+              "method": "设 max_iter=200，正常实例 <50 轮",
+              "category": "pitfall"
             },
             {
               "desc": "T3 实例 CG 收敛到 LP=20",
               "level": "L1",
               "method": "枚举 T3 全部可行路径建 SP 模型（set covering LP），Gurobi 求解 LP 松弛 = 20。CG 收敛后 z*_LP 应与此一致。",
-              "cmd": "pytest src/python/tests/test_cg_convergence.py::test_t3_converge"
+              "cmd": "pytest src/python/tests/test_cg_convergence.py::test_t3_converge",
+              "category": "correctness"
             }
           ],
           "post": [
             {
               "desc": "所有列的 RC ≥ 0（无遗漏负 RC 列）",
-              "check": "最后一轮 pricing 返回空列表"
+              "check": "最后一轮 pricing 返回空列表",
+              "category": "correctness"
             },
             {
               "desc": "z*_LP 是当前 B&B 节点的有效下界",
-              "check": "z_LP <= IP_optimal"
+              "check": "z_LP <= IP_optimal",
+              "category": "correctness"
             }
           ]
         }
@@ -206,7 +213,8 @@
           "pre": [
             {
               "desc": "初始列已生成，RMP 可行",
-              "check": "RMP initialized with feasible columns"
+              "check": "RMP initialized with feasible columns",
+              "category": "pitfall"
             }
           ],
           "core": [
@@ -214,33 +222,39 @@
               "desc": "P-n16-k8 精确求解 cost=450, gap=0%",
               "level": "L3",
               "method": "端对端测试",
-              "cmd": "pytest src/python/tests/test_e2e.py::test_pn16k8"
+              "cmd": "pytest src/python/tests/test_e2e.py::test_pn16k8",
+              "category": "correctness"
             },
             {
               "desc": "E-n13-k4 找到最优解 290",
               "level": "L3",
-              "method": "端对端测试"
+              "method": "端对端测试",
+              "category": "correctness"
             },
             {
               "desc": "所有剪枝节点满足 LB ≥ UB",
               "level": "L2",
-              "method": "B&B 日志审计"
+              "method": "B&B 日志审计",
+              "category": "correctness"
             },
             {
               "desc": "最终解通过 checker 验证（容量+覆盖+成本）",
               "level": "L1",
               "method": "checker.check_solution()",
-              "cmd": "pytest src/python/tests/test_checker.py"
+              "cmd": "pytest src/python/tests/test_checker.py",
+              "category": "correctness"
             }
           ],
           "post": [
             {
               "desc": "B&B 队列为空（所有节点已处理或剪枝）",
-              "check": "len(queue) == 0"
+              "check": "len(queue) == 0",
+              "category": "pitfall"
             },
             {
               "desc": "UB = 全局最优整数解",
-              "check": "UB == IP_optimal (if proved)"
+              "check": "UB == IP_optimal (if proved)",
+              "category": "correctness"
             }
           ]
         }
@@ -255,7 +269,8 @@
         "pre": [
           {
             "desc": "实例文件格式正确",
-            "check": "instance.dimension > 0 and instance.capacity > 0"
+            "check": "instance.dimension > 0 and instance.capacity > 0",
+            "category": "pitfall"
           }
         ],
         "core": [
@@ -263,33 +278,39 @@
             "desc": "RMP 可行（初始列覆盖所有客户）",
             "level": "L1",
             "method": "检查每个客户至少被一条初始路径覆盖",
-            "cmd": "pytest src/python/tests/test_instance.py"
+            "cmd": "pytest src/python/tests/test_instance.py",
+            "category": "correctness"
           },
           {
             "desc": "每条初始路径满足容量约束 Q",
             "level": "L1",
-            "method": "sum(demands) <= Q for each route"
+            "method": "sum(demands) <= Q for each route",
+            "category": "correctness"
           },
           {
             "desc": "距离矩阵对称且非负",
             "level": "L1",
-            "method": "c[i][j] == c[j][i] and c[i][j] >= 0"
+            "method": "c[i][j] == c[j][i] and c[i][j] >= 0",
+            "category": "pitfall"
           },
           {
             "desc": "RMP 可以正常求解",
             "level": "L1",
             "method": "调用 LP 求解器返回 OPTIMAL",
-            "cmd": "pytest src/python/tests/test_rmp.py"
+            "cmd": "pytest src/python/tests/test_rmp.py",
+            "category": "correctness"
           }
         ],
         "post": [
           {
             "desc": "RMP 对象已构建，可调用 solve()",
-            "check": "rmp.model is not None"
+            "check": "rmp.model is not None",
+            "category": "pitfall"
           },
           {
             "desc": "B&B 队列含且仅含根节点",
-            "check": "len(queue) == 1"
+            "check": "len(queue) == 1",
+            "category": "pitfall"
           }
         ]
       },
@@ -303,11 +324,13 @@
         "pre": [
           {
             "desc": "RMP 含至少一组覆盖所有客户的列",
-            "check": "all customers covered"
+            "check": "all customers covered",
+            "category": "pitfall"
           },
           {
             "desc": "分支约束已正确应用",
-            "check": "branch constraints applied to model"
+            "check": "branch constraints applied to model",
+            "category": "pitfall"
           }
         ],
         "core": [
@@ -315,42 +338,50 @@
             "desc": "LP 求解器返回 OPTIMAL",
             "level": "L1",
             "method": "status == GRB.OPTIMAL",
-            "cmd": "pytest src/python/tests/test_rmp.py"
+            "cmd": "pytest src/python/tests/test_rmp.py",
+            "category": "correctness"
           },
           {
             "desc": "所有 λ 值 ≥ 0",
             "level": "L1",
-            "method": "all(v >= -1e-8 for v in lambda_star)"
+            "method": "all(v >= -1e-8 for v in lambda_star)",
+            "category": "pitfall"
           },
           {
             "desc": "n 个覆盖约束均被满足（每客户 i 一个约束：Σ a_ir λ_r ≥ 1）",
             "level": "L1",
-            "method": "对每个 i=1..n 检查 coverage_i ≥ 1 - eps"
+            "method": "对每个 i=1..n 检查 coverage_i ≥ 1 - eps",
+            "category": "correctness"
           },
           {
             "desc": "z_LP ≤ 已知最优解",
             "level": "L2",
-            "method": "z_LP <= known_optimal + eps"
+            "method": "z_LP <= known_optimal + eps",
+            "category": "correctness"
           },
           {
             "desc": "T3 实例 LP=20, dual=(6,8,6)",
             "level": "L1",
             "method": "手算验证",
-            "cmd": "pytest src/python/tests/test_rmp.py::test_t3_dual"
+            "cmd": "pytest src/python/tests/test_rmp.py::test_t3_dual",
+            "category": "correctness"
           }
         ],
         "post": [
           {
             "desc": "lambda_star 维度 = 列数",
-            "check": "len(lambda_star) == num_columns"
+            "check": "len(lambda_star) == num_columns",
+            "category": "pitfall"
           },
           {
             "desc": "pi 维度 = 客户数",
-            "check": "len(pi) == n"
+            "check": "len(pi) == n",
+            "category": "pitfall"
           },
           {
             "desc": "所有 pi_i ≥ 0",
-            "check": "all(p >= -1e-8 for p in pi)"
+            "check": "all(p >= -1e-8 for p in pi)",
+            "category": "pitfall"
           }
         ]
       },
@@ -364,7 +395,8 @@
         "pre": [
           {
             "desc": "RMP 已求解且状态为 OPTIMAL",
-            "check": "rmp.status == OPTIMAL"
+            "check": "rmp.status == OPTIMAL",
+            "category": "pitfall"
           }
         ],
         "core": [
@@ -372,23 +404,27 @@
             "desc": "所有 π_i ≥ 0",
             "level": "L1",
             "method": "all(pi_i >= -1e-8)",
-            "cmd": "pytest src/python/tests/test_rmp.py"
+            "cmd": "pytest src/python/tests/test_rmp.py",
+            "category": "pitfall"
           },
           {
             "desc": "π 维度 = 客户数 n",
             "level": "L1",
-            "method": "len(pi) == n"
+            "method": "len(pi) == n",
+            "category": "pitfall"
           },
           {
             "desc": "互补松弛条件成立",
             "level": "L2",
-            "method": "约束松弛时 π_i = 0"
+            "method": "约束松弛时 π_i = 0",
+            "category": "correctness"
           }
         ],
         "post": [
           {
             "desc": "π 向量可传递给定价子问题",
-            "check": "len(pi) == n and all finite"
+            "check": "len(pi) == n and all finite",
+            "category": "pitfall"
           }
         ]
       },
@@ -402,11 +438,13 @@
         "pre": [
           {
             "desc": "对偶值 π 已提取且维度正确",
-            "check": "len(pi) == n"
+            "check": "len(pi) == n",
+            "category": "pitfall"
           },
           {
             "desc": "修改后的边权 c_bar 已计算",
-            "check": "c_bar[i][j] = c[i][j] - pi[j]"
+            "check": "c_bar[i][j] = c[i][j] - pi[j]",
+            "category": "pitfall"
           }
         ],
         "core": [
@@ -414,29 +452,34 @@
             "desc": "所有生成路径满足容量 Q",
             "level": "L1",
             "method": "sum(demands on route) <= Q",
-            "cmd": "pytest src/python/tests/test_pricing.py"
+            "cmd": "pytest src/python/tests/test_pricing.py",
+            "category": "correctness"
           },
           {
             "desc": "所有路径是 elementary（无重复客户）",
             "level": "L1",
-            "method": "len(route) == len(set(route))"
+            "method": "len(route) == len(set(route))",
+            "category": "pitfall"
           },
           {
             "desc": "RC 计算正确：c_r - Σπ_i",
             "level": "L1",
-            "method": "对比 label cost 与手动计算"
+            "method": "对比 label cost 与手动计算",
+            "category": "pitfall"
           },
           {
             "desc": "MIP oracle 验证：ESPPRC 最优 RC = MIP 最优 RC",
             "level": "L1",
             "method": "将定价问题建为 MIP（二元变量 y_i 选客户、x_ij 选边，容量+流守恒+子回路消除），求解后最优目标 = 最小 RC。与 label-setting 结果对比，差 < 1e-6",
-            "cmd": "pytest src/python/tests/test_pricing.py::test_mip_oracle"
+            "cmd": "pytest src/python/tests/test_pricing.py::test_mip_oracle",
+            "category": "correctness"
           }
         ],
         "post": [
           {
             "desc": "返回的列 RC 均 < 0，或列表为空（CG 收敛）",
-            "check": "all(rc < -1e-8 for rc in results) or len(results) == 0"
+            "check": "all(rc < -1e-8 for rc in results) or len(results) == 0",
+            "category": "correctness"
           }
         ]
       },
@@ -450,31 +493,36 @@
         "pre": [
           {
             "desc": "定价子问题已完成求解",
-            "check": "pricing result available"
+            "check": "pricing result available",
+            "category": "pitfall"
           }
         ],
         "core": [
           {
             "desc": "新列的 cost 和 coverage 系数正确",
             "level": "L1",
-            "method": "对比原始距离和路径"
+            "method": "对比原始距离和路径",
+            "category": "pitfall"
           },
           {
             "desc": "CG 收敛时所有列 RC ≥ -ε（ε=1e-8）",
             "level": "L2",
             "method": "最后一轮定价以 RC < -1e-8 为阈值，返回空列表即收敛。注意：LP 求解器的对偶值本身有 ~1e-10 级数值噪声，定价阈值不能设得比这更紧。我们用 1e-8 作为负 RC 判定阈值，既避免误报（噪声触发）又不遗漏真正的负 RC 列。",
-            "cmd": "pytest src/python/tests/test_cg_convergence.py"
+            "cmd": "pytest src/python/tests/test_cg_convergence.py",
+            "category": "pitfall"
           },
           {
             "desc": "迭代次数合理（不无限循环）",
             "level": "L2",
-            "method": "iter_count < max_iters"
+            "method": "iter_count < max_iters",
+            "category": "pitfall"
           }
         ],
         "post": [
           {
             "desc": "RMP 列集已更新 或 CG 已收敛",
-            "check": "columns added or converged flag set"
+            "check": "columns added or converged flag set",
+            "category": "correctness"
           }
         ]
       },
@@ -487,31 +535,36 @@
         "pre": [
           {
             "desc": "CG 已收敛（无负 RC 列）",
-            "check": "cg_converged == True"
+            "check": "cg_converged == True",
+            "category": "pitfall"
           }
         ],
         "core": [
           {
             "desc": "整数判断容差设置合理",
             "level": "L1",
-            "method": "EPS = 1e-6"
+            "method": "EPS = 1e-6",
+            "category": "pitfall"
           },
           {
             "desc": "UB 只减不增",
             "level": "L1",
             "method": "new_UB <= old_UB",
-            "cmd": "pytest src/python/tests/test_branch.py"
+            "cmd": "pytest src/python/tests/test_branch.py",
+            "category": "pitfall"
           },
           {
             "desc": "整数解对应可行路径（覆盖+容量）",
             "level": "L1",
-            "method": "checker.verify(solution)"
+            "method": "checker.verify(solution)",
+            "category": "correctness"
           }
         ],
         "post": [
           {
             "desc": "返回 INTEGER 或 FRACTIONAL 状态",
-            "check": "status in {INTEGER, FRACTIONAL}"
+            "check": "status in {INTEGER, FRACTIONAL}",
+            "category": "correctness"
           }
         ]
       },
@@ -524,35 +577,41 @@
         "pre": [
           {
             "desc": "LB 是 CG 收敛后的 LP 最优值",
-            "check": "LB == z_LP after CG convergence"
+            "check": "LB == z_LP after CG convergence",
+            "category": "pitfall"
           },
           {
             "desc": "UB 是全局最优整数解的目标值",
-            "check": "UB == best integer objective"
+            "check": "UB == best integer objective",
+            "category": "pitfall"
           }
         ],
         "core": [
           {
             "desc": "浮点比较使用容差 ε",
             "level": "L1",
-            "method": "代码审查"
+            "method": "代码审查",
+            "category": "pitfall"
           },
           {
             "desc": "剪枝后节点不再被访问",
             "level": "L2",
             "method": "B&B 队列不含已剪枝节点",
-            "cmd": "pytest src/python/tests/test_branch.py"
+            "cmd": "pytest src/python/tests/test_branch.py",
+            "category": "pitfall"
           },
           {
             "desc": "整数代价剪枝有效",
             "level": "L2",
-            "method": "ceil(289.33) >= 290 → prune"
+            "method": "ceil(289.33) >= 290 → prune",
+            "category": "correctness"
           }
         ],
         "post": [
           {
             "desc": "返回 PRUNE 或 BRANCH",
-            "check": "result in {PRUNE, BRANCH}"
+            "check": "result in {PRUNE, BRANCH}",
+            "category": "correctness"
           }
         ]
       },
@@ -565,7 +624,8 @@
         "pre": [
           {
             "desc": "LP 解含分数值",
-            "check": "not is_integer_solution(lambda_star)"
+            "check": "not is_integer_solution(lambda_star)",
+            "category": "pitfall"
           }
         ],
         "core": [
@@ -573,29 +633,34 @@
             "desc": "分支变量确实是分数值",
             "level": "L1",
             "method": "0 < x[i][j] < 1",
-            "cmd": "pytest src/python/tests/test_branch.py"
+            "cmd": "pytest src/python/tests/test_branch.py",
+            "category": "pitfall"
           },
           {
             "desc": "左右子节点约束互补",
             "level": "L1",
-            "method": "left.forbidden ∩ right.forced = {(i,j)}"
+            "method": "left.forbidden ∩ right.forced = {(i,j)}",
+            "category": "pitfall"
           },
           {
             "desc": "子节点继承父节点所有分支约束",
             "level": "L1",
-            "method": "child.constraints ⊇ parent.constraints"
+            "method": "child.constraints ⊇ parent.constraints",
+            "category": "pitfall"
           },
           {
             "desc": "手造 λ 验算分支选择",
             "level": "L1",
             "method": "给定 λ 值验证选出的边",
-            "cmd": "pytest src/python/tests/test_branch.py::test_branch_selection"
+            "cmd": "pytest src/python/tests/test_branch.py::test_branch_selection",
+            "category": "correctness"
           }
         ],
         "post": [
           {
             "desc": "B&B 队列新增 2 个子节点",
-            "check": "len(queue) increased by 2"
+            "check": "len(queue) increased by 2",
+            "category": "correctness"
           }
         ]
       },
@@ -608,7 +673,8 @@
         "pre": [
           {
             "desc": "B&B 队列为空",
-            "check": "len(queue) == 0"
+            "check": "len(queue) == 0",
+            "category": "pitfall"
           }
         ],
         "core": [
@@ -616,30 +682,35 @@
             "desc": "每条路径满足容量约束 Q",
             "level": "L1",
             "method": "checker.verify()",
-            "cmd": "pytest src/python/tests/test_e2e.py"
+            "cmd": "pytest src/python/tests/test_e2e.py",
+            "category": "correctness"
           },
           {
             "desc": "所有客户被恰好覆盖一次",
             "level": "L1",
-            "method": "checker.verify()"
+            "method": "checker.verify()",
+            "category": "correctness"
           },
           {
             "desc": "目标值 = 所有选中路径距离之和",
             "level": "L1",
             "method": "checker.verify()",
-            "cmd": "pytest src/python/tests/test_checker.py"
+            "cmd": "pytest src/python/tests/test_checker.py",
+            "category": "correctness"
           },
           {
             "desc": "P-n16-k8 精确求解 cost=450",
             "level": "L3",
             "method": "端对端测试",
-            "cmd": "pytest src/python/tests/test_e2e.py::test_pn16k8"
+            "cmd": "pytest src/python/tests/test_e2e.py::test_pn16k8",
+            "category": "correctness"
           }
         ],
         "post": [
           {
             "desc": "输出完整求解统计",
-            "check": "stats printed"
+            "check": "stats printed",
+            "category": "pitfall"
           }
         ]
       },

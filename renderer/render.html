@@ -226,6 +226,12 @@ svg.flowchart { display: block; margin: 0 auto; }
   font-size: 11px; font-weight: 600; padding: 1px 6px;
   border-radius: 4px; background: #dbeafe; color: #1d4ed8;
 }
+.verify-category {
+  font-size: 11px; font-weight: 600; padding: 1px 6px;
+  border-radius: 4px; display: inline-block;
+}
+.verify-category.correctness { background: #dcfce7; color: #166534; }
+.verify-category.pitfall { background: #fef3c7; color: #92400e; }
 .verify-method-text { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 .verify-cmd {
   display: block; font-size: 11px; margin-top: 4px;
@@ -1044,10 +1050,12 @@ function openPanel(nodeId) {
       const checked = state.verifyChecks[nodeId]?.[globalIdx] ? "checked" : "";
       const passedClass = checked ? " passed" : "";
       const levelTag = item.level ? `<span class="verify-level">${item.level}</span>` : "";
+      const catLabels = { correctness: "正确性", pitfall: "易错性" };
+      const catTag = item.category ? `<span class="verify-category ${item.category}">${catLabels[item.category] || item.category}</span>` : "";
       const checkTag = item.check ? `<div class="verify-method-text">检查：${item.check}</div>` : "";
       const methodTag = item.method ? `<div class="verify-method-text">方法：${item.method}</div>` : "";
       const cmdEl = item.cmd ? `<code class="verify-cmd">${item.cmd}</code>` : "";
-      verifyHtml += `<div class="verify-item${passedClass}"><span class="verify-check-icon">${checked ? "✅" : "⬜"}</span><div class="verify-content"><div>${item.desc}</div><div class="verify-meta">${levelTag}</div>${checkTag}${methodTag}${cmdEl}</div></div>`;
+      verifyHtml += `<div class="verify-item${passedClass}"><span class="verify-check-icon">${checked ? "✅" : "⬜"}</span><div class="verify-content"><div>${item.desc}</div><div class="verify-meta">${levelTag}${catTag}</div>${checkTag}${methodTag}${cmdEl}</div></div>`;
       totalItems++;
       globalIdx++;
     });
@@ -1055,7 +1063,7 @@ function openPanel(nodeId) {
 
   const checkedCount = Object.values(state.verifyChecks[nodeId] || {}).filter(Boolean).length;
   const refsHtml = data.refs ? `<hr style="margin:1.5em 0"><h3>参考资料</h3>${renderMd(data.refs)}` : '';
-  document.getElementById("pane-verify").innerHTML = `<div class="verify-header"><h3>验证规范</h3><p>三层验证：前置条件 → 内部正确性 → 后置条件。全部通过 = 此环节可信。</p></div>${verifyHtml}<div class="verify-summary">通过 <span class="verify-summary-count">${checkedCount} / ${totalItems}</span> 项</div>${refsHtml}`;
+  document.getElementById("pane-verify").innerHTML = `<div class="verify-header"><h3>验证规范</h3><p>三层验证：前置条件 → 内部正确性 → 后置条件。<span class="verify-category correctness">正确性</span> = oracle 对比，<span class="verify-category pitfall">易错性</span> = 已知坑点检查。</p></div>${verifyHtml}<div class="verify-summary">通过 <span class="verify-summary-count">${checkedCount} / ${totalItems}</span> 项</div>${refsHtml}`;
   rawTabContent.verify = document.getElementById("pane-verify").innerHTML;
 
   // Apply annotations
@@ -1125,16 +1133,18 @@ function openRegionPanel(regionId) {
       const checked = state.verifyChecks[regionId]?.[globalIdx] ? "checked" : "";
       const passedClass = checked ? " passed" : "";
       const levelTag = item.level ? `<span class="verify-level">${item.level}</span>` : "";
+      const catLabels = { correctness: "正确性", pitfall: "易错性" };
+      const catTag = item.category ? `<span class="verify-category ${item.category}">${catLabels[item.category] || item.category}</span>` : "";
       const checkTag = item.check ? `<div class="verify-method-text">检查：${item.check}</div>` : "";
       const methodTag = item.method ? `<div class="verify-method-text">方法：${item.method}</div>` : "";
       const cmdEl = item.cmd ? `<code class="verify-cmd">${item.cmd}</code>` : "";
-      verifyHtml += `<div class="verify-item${passedClass}"><span class="verify-check-icon">${checked ? "✅" : "⬜"}</span><div class="verify-content"><div>${item.desc}</div><div class="verify-meta">${levelTag}</div>${checkTag}${methodTag}${cmdEl}</div></div>`;
+      verifyHtml += `<div class="verify-item${passedClass}"><span class="verify-check-icon">${checked ? "✅" : "⬜"}</span><div class="verify-content"><div>${item.desc}</div><div class="verify-meta">${levelTag}${catTag}</div>${checkTag}${methodTag}${cmdEl}</div></div>`;
       totalItems++;
       globalIdx++;
     });
   });
   const checkedCount = Object.values(state.verifyChecks[regionId] || {}).filter(Boolean).length;
-  const verifyFullHtml = `<div class="verify-header"><h3>区域验证</h3><p>L2 交叉验证：各子模块组合后，整体行为是否符合预期。</p></div>${verifyHtml}<div class="verify-summary">通过 <span class="verify-summary-count">${checkedCount} / ${totalItems}</span> 项</div>`;
+  const verifyFullHtml = `<div class="verify-header"><h3>区域验证</h3><p>L2 交叉验证。<span class="verify-category correctness">正确性</span> = oracle 对比，<span class="verify-category pitfall">易错性</span> = 已知坑点检查。</p></div>${verifyHtml}<div class="verify-summary">通过 <span class="verify-summary-count">${checkedCount} / ${totalItems}</span> 项</div>`;
 
   rawTabContent = { overview: semanticHtml, implementation: nodesHtml, verify: "" };
   for (const [tab, html] of Object.entries(rawTabContent)) {
