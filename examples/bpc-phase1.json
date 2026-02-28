@@ -192,7 +192,7 @@
       {
         "id": "bnb",
         "label": "Branch-and-Bound",
-        "semantic": "**分支定界框架**是 BPC 的外层搜索。\n\n**输入**：初始 RMP + 初始上界 $UB = +\\infty$\n**输出**：全局最优整数解（或证明无更优解）\n\n**搜索逻辑**：\n1. 从 B&B 队列取出一个节点\n2. 在该节点上运行**列生成循环**得到 LP 最优\n3. LP 解是整数？→ 更新 UB\n4. LP 解非整数？→ 界检查（$LB \\ge UB$ 则剪枝）→ 分支创建子节点\n5. 重复直到队列为空\n\n**DFS 策略**：我们用栈（后进先出）实现深度优先搜索，优先探索 forced 分支（更可能找到可行整数解，快速降低 UB）。\n\n**关键加速**：整数代价剪枝 $\\lceil LB \\rceil \\ge UB$ + Restricted MIP 启发式（root CG 后 IP 求解快速获得初始 UB）。",
+        "semantic": "**分支定界框架**是 BPC 的外层搜索。\n\n**输入**：初始 RMP + 初始上界 $UB = +\\infty$\n**输出**：全局最优整数解（或证明无更优解）\n\n### 等价 MIP：Set Covering IP\n\nBPC 整体等价于求解以下整数规划（$\\Omega$ 为所有可行路径集合）：\n\n$$\\min \\sum_{r \\in \\Omega} c_r \\lambda_r \\quad \\text{s.t.} \\quad \\sum_{r \\in \\Omega} a_{ir} \\lambda_r \\ge 1 \\;\\forall i \\in N,\\; \\lambda_r \\in \\{0,1\\}$$\n\n由于 $|\\Omega|$ 指数级大，无法直接枚举。BPC 通过列生成（隐式处理列）+ 分支定界（搜索整数解）等价地求解此 IP。\n\n**搜索逻辑**：\n1. 从 B&B 队列取出一个节点\n2. 在该节点上运行**列生成循环**得到 LP 最优\n3. LP 解是整数？→ 更新 UB\n4. LP 解非整数？→ 界检查（$LB \\ge UB$ 则剪枝）→ 分支创建子节点\n5. 重复直到队列为空\n\n**DFS 策略**：我们用栈（后进先出）实现深度优先搜索，优先探索 forced 分支（更可能找到可行整数解，快速降低 UB）。\n\n**关键加速**：整数代价剪枝 $\\lceil LB \\rceil \\ge UB$ + Restricted MIP 启发式（root CG 后 IP 求解快速获得初始 UB）。",
         "nodes": [
           "02_solve_rmp",
           "03_extract_duals",
