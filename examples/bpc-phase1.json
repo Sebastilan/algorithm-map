@@ -140,7 +140,7 @@
       {
         "id": "cg_loop",
         "label": "Column Generation Loop",
-        "semantic": "**列生成循环**是 BPC 的内层核心。\n\n**输入**：RMP（含当前列集合）+ 分支约束\n**输出**：收敛的 LP 最优解 $z^*_{LP}$ + 对应的 $\\lambda^*$\n\n**等价关系**：CG 收敛后的 $z^*_{LP}$ 等价于在**全部**指数级列上求解 LP 松弛的最优值（Dantzig-Wolfe 分解定理）。\n\n### 等价 MIP：Set Covering LP（全列）\n\n$$\\min \\sum_{r \\in \\Omega} c_r \\lambda_r \\quad \\text{s.t.} \\quad \\sum_{r \\in \\Omega} a_{ir} \\lambda_r \\ge 1 \\; \\forall i,\\; \\lambda_r \\ge 0$$\n\n其中 $\\Omega$ 为**全部**可行路径集合。CG 不显式枚举 $\\Omega$，而是通过定价子问题隐式生成。小实例（$n \\le 8$）可枚举 $\\Omega$ 建此 LP 作为 oracle，验证 CG 收敛值。\n\n**循环逻辑**：\n1. 求解 RMP → 获得对偶 $\\pi$\n2. 用 $\\pi$ 引导 ESPPRC 寻找负 RC 列\n3. 有负 RC 列 → 加入 RMP → 回到 1\n4. 无负 RC 列 → LP 最优，退出循环\n\n**收敛保证**：每次加入负 RC 列后 LP 目标严格改善（或不变），有限列 → 有限步收敛。",
+        "semantic": "**列生成循环**是 BPC 的内层核心。\n\n**输入**：RMP（含当前列集合）+ 分支约束\n**输出**：收敛的 LP 最优解 $z^*_{LP}$ + 对应的 $\\lambda^*$\n\n### CG 求解的是什么？——原始 IP 的 LP 松弛\n\nBPC 整体求解 Set Covering **IP**（见 B&B 概述）。CG Loop 的任务是求解该 IP 的 **LP 松弛**——将 $\\lambda_r \\in \\{0,1\\}$ 放松为 $\\lambda_r \\ge 0$：\n\n$$\\min \\sum_{r \\in \\Omega} c_r \\lambda_r \\quad \\text{s.t.} \\quad \\sum_{r \\in \\Omega} a_{ir} \\lambda_r \\ge 1 \\; \\forall i,\\; \\lambda_r \\ge 0$$\n\n$|\\Omega|$ 随客户数指数增长，这个 LP 无法直接建模求解。**列生成是求解方法**：通过定价子问题（ESPPRC）隐式生成列，每轮只处理 $\\Omega' \\subset \\Omega$（RMP），收敛后等价于在全部 $\\Omega$ 上求解。小实例（$n \\le 8$）可枚举 $\\Omega$ 显式建此 LP 作为 oracle，验证 CG 收敛值。\n\n**循环逻辑**：\n1. 求解 RMP → 获得对偶 $\\pi$\n2. 用 $\\pi$ 引导 ESPPRC 寻找负 RC 列\n3. 有负 RC 列 → 加入 RMP → 回到 1\n4. 无负 RC 列 → LP 最优，退出循环\n\n**收敛保证**：每次加入负 RC 列后 LP 目标严格改善（或不变），有限列 → 有限步收敛。",
         "nodes": [
           "02_solve_rmp",
           "03_extract_duals",
