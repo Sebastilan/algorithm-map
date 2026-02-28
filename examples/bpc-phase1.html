@@ -1449,6 +1449,9 @@ async function submitFeedback() {
           ? "✓ 已推送到 CC 终端"
           : "✓ 已提交，正在打开新 CC 窗口…";
         showToast(msg);
+        // 清空已提交的批注
+        state.annotations = {}; state.flowAnnotations = {};
+        saveState();
         // 通知父窗口（review.html iframe 模式）跳回终端页
         if (window.parent !== window) {
           window.parent.postMessage({ type: "feedback-submitted", terminalId }, "*");
@@ -1461,6 +1464,8 @@ async function submitFeedback() {
   // All endpoints failed — clipboard fallback
   try {
     await navigator.clipboard.writeText(md);
+    state.annotations = {}; state.flowAnnotations = {};
+    saveState();
     showToast("服务器不可用，已复制到剪贴板");
   } catch {
     prompt("请手动复制反馈 Markdown：", md);
